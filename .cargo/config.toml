@@ -1,0 +1,9 @@
+[alias]
+c = "clippy --all --all-targets -- -D warnings"
+f = "fmt --check --all"
+br = "build --release"
+
+[net]
+retry = 3
+git-fetch-with-cli = true
+# offline = true

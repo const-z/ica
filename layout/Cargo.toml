@@ -1,0 +1,12 @@
+[package]
+name = "ica-layout"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ica-core = { path = "../core", package = "ica-core" }
+petgraph = "0.8.3"
+rand = "0.10.0"
+
+[dev-dependencies]
+svg = { version = "0.18.0" }

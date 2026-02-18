@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package ica.schema;
+
+// Generic attribute for nodes and edges.
+message Attribute {
+  string key = 1;
+
+  oneof value {
+    string text = 2;
+    int64 integer = 3;
+    double float = 4;
+    bool boolean = 5;
+  }
+}
+
+message CreateSchemaRequest {
+  string schema_id = 1;
+}
+
+message CreateSchemaResponse {
+  string schema_id = 1;
+}
+
+message DeleteSchemaRequest {
+  string schema_id = 1;
+}
+
+message DeleteSchemaResponse {}
+
+message AddNodeRequest {
+  string schema_id = 1;
+  repeated Attribute attributes = 2;
+  uint64 node_id = 3;
+}
+
+message AddNodeResponse {
+  uint64 node_id = 1;
+}
+
+message RemoveNodeRequest {
+  string schema_id = 1;
+  uint64 node_id = 2;
+}
+
+message RemoveNodeResponse {}
+
+message AddEdgeRequest {
+  string schema_id = 1;
+  uint64 from = 2;
+  uint64 to = 3;
+  repeated Attribute attributes = 4;
+  uint64 edge_id = 5;
+}
+
+message AddEdgeResponse {
+  uint64 edge_id = 1;
+}
+
+message RemoveEdgeRequest {
+  string schema_id = 1;
+  uint64 edge_id = 2;
+}
+
+message RemoveEdgeResponse {}
+
+// Seed values for influence computation.
+message InfluenceSeed {
+  uint64 node_id = 1;
+  double influence = 2;
+}
+
+// Create a node with predefined influence and immediately link it to an existing node.
+message AddNodeWithInfluenceRequest {
+  string schema_id = 1;
+  uint64 node_id = 2;              // ID of the new node to create
+  repeated Attribute attributes = 3; // Attributes for the new node
+  double influence = 4;             // Predefined influence value (seed)
+  uint64 parent_node_id = 5;         // ID of existing node to link to (edge: new_node -> parent)
+  uint64 edge_id = 6;                // ID for the new edge
+  repeated Attribute edge_attributes = 7; // Attributes for the edge
+}
+
+message AddNodeWithInfluenceResponse {
+  uint64 node_id = 1;
+  uint64 edge_id = 2;
+}
+
+message ComputeStateRequest {
+  string schema_id = 1;
+  uint64 root_node_id = 2;
+  repeated InfluenceSeed seeds = 3;
+}
+
+message NodeState {
+  uint64 node_id = 1;
+  double influence = 2;
+}
+
+message ComputeStateResponse {
+  repeated NodeState states = 1;
+}
+
+service SchemaService {
+  // Создать пустую схему с указанным идентификатором.
+  rpc CreateSchema(CreateSchemaRequest) returns (CreateSchemaResponse);
+
+  // Удалить схему и все её узлы/рёбра.
+  rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
+
+  // Добавить узел в указанную схему.
+  rpc AddNode(AddNodeRequest) returns (AddNodeResponse);
+
+  // Удалить узел и все инцидентные рёбра.
+  rpc RemoveNode(RemoveNodeRequest) returns (RemoveNodeResponse);
+
+  // Добавить ребро между двумя существующими узлами.
+  rpc AddEdge(AddEdgeRequest) returns (AddEdgeResponse);
+
+  // Удалить ребро по идентификатору.
+  rpc RemoveEdge(RemoveEdgeRequest) returns (RemoveEdgeResponse);
+
+  // Выполнить расчёт состояния всех узлов для заданного корня.
+  rpc ComputeState(ComputeStateRequest) returns (ComputeStateResponse);
+
+  // Создать узел с известным влиянием и сразу привязать его к существующему узлу.
+  rpc AddNodeWithInfluence(AddNodeWithInfluenceRequest) returns (AddNodeWithInfluenceResponse);
+}
+
