@@ -2,9 +2,10 @@
 name = "ica-layout"
 version = "0.1.0"
 edition = "2024"
+description = "Impact Cascade Assessment. Layout"
 
 [dependencies]
-ica-core = { path = "../core", package = "ica-core" }
+ica-core = { path = "../core", package = "ica-core", version = "0.1.0" }
 petgraph = "0.8.3"
 rand = "0.10.0"
 

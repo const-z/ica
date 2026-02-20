@@ -1,7 +1,6 @@
-use ica_grpc::schema::schema_service_server::SchemaServiceServer;
-use ica_grpc::SchemaServiceImpl;
+use ica_engine::SchemaServiceImpl;
+use ica_engine::schema_contracts::schema_service_server::SchemaServiceServer;
 use tonic::transport::Server;
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

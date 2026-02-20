@@ -44,4 +44,8 @@ impl Attributes {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&AttributeKey, &AttributeValue)> {
+        self.inner.iter()
+    }
 }

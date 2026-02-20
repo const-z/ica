@@ -1,14 +1,11 @@
 pub mod schema;
 
-// Re-export the most important types at the crate root for convenience.
 pub use schema::{
     AttributeKey, AttributeValue, Attributes, Edge, EdgeId, HasId, Node, NodeId, Schema,
 };
 
 #[cfg(test)]
 mod core_tests {
-    use crate::schema::ChildInfluence;
-
     use super::*;
     use std::collections::HashMap;
 
@@ -63,28 +60,28 @@ mod core_tests {
         let n1 = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let n2 = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         assert_eq!(g.node_count(), 2);
         assert!(!g.is_empty());
-        assert!(g.node(n1).is_some());
-        assert!(g.node(n2).is_some());
+        assert!(g.node(&n1).is_ok());
+        assert!(g.node(&n2).is_ok());
 
         let e1 = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, n1, n2, Attributes::new());
+            let _ = g.insert_edge(id, n1, n2, Attributes::new());
             id
         };
         assert_eq!(g.edge_count(), 1);
-        let edge = g.edge(e1).expect("edge must exist");
+        let edge = g.edge(&e1).expect("edge must exist");
         assert_eq!(edge.from, n1);
         assert_eq!(edge.to, n2);
     }
@@ -97,46 +94,46 @@ mod core_tests {
         let a = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let b = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let c = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
 
         let _ab = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, a, b, Attributes::new());
+            let _ = g.insert_edge(id, a, b, Attributes::new());
             id
         };
         let _ac = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, a, c, Attributes::new());
+            let _ = g.insert_edge(id, a, c, Attributes::new());
             id
         };
         let _ba = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, b, a, Attributes::new());
+            let _ = g.insert_edge(id, b, a, Attributes::new());
             id
         };
 
-        let outgoing_from_a: Vec<_> = g.outgoing_edges(a).collect();
+        let outgoing_from_a: Vec<_> = g.outgoing_edges(&a).collect();
         assert_eq!(outgoing_from_a.len(), 2);
         assert!(outgoing_from_a.iter().all(|e| e.from == a));
 
-        let incoming_to_a: Vec<_> = g.incoming_edges(a).collect();
+        let incoming_to_a: Vec<_> = g.incoming_edges(&a).collect();
         assert_eq!(incoming_to_a.len(), 1);
         assert!(incoming_to_a.iter().all(|e| e.to == a));
     }
@@ -149,45 +146,45 @@ mod core_tests {
         let a = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let b = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let c = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
 
         let _ab = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, a, b, Attributes::new());
+            let _ = g.insert_edge(id, a, b, Attributes::new());
             id
         };
         let _bc = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, b, c, Attributes::new());
+            let _ = g.insert_edge(id, b, c, Attributes::new());
             id
         };
         let _ca = {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, c, a, Attributes::new());
+            let _ = g.insert_edge(id, c, a, Attributes::new());
             id
         };
 
         assert_eq!(g.edge_count(), 3);
 
-        let removed = g.remove_node(b);
-        assert!(removed.is_some());
+        let removed = g.remove_node(&b);
+        assert!(removed.is_ok());
 
         assert_eq!(g.edge_count(), 1);
         let remaining: Vec<_> = g.edges().collect();
@@ -197,134 +194,151 @@ mod core_tests {
     }
 
     #[test]
-    fn compute_influence_propagates_from_children_to_parents() {
+    fn compute_impact_propagates_from_children_to_parents() {
         let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
         let mut counter = 0;
 
         let root = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let mid = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let leaf2 = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
         let leaf1 = {
             counter += 1;
             let id = NodeId(counter);
-            g.insert_node(id, Attributes::new());
+            let _ = g.insert_node(id, Attributes::new());
             id
         };
 
         {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, leaf1, mid, Attributes::new());
+            let _ = g.insert_edge(id, leaf1, mid, Attributes::new());
         }
         {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, mid, root, Attributes::new());
+            let _ = g.insert_edge(id, mid, root, Attributes::new());
         }
         {
             counter += 1;
             let id = EdgeId(counter);
-            g.insert_edge(id, leaf2, mid, Attributes::new());
+            let _ = g.insert_edge(id, leaf2, mid, Attributes::new());
         }
 
         let mut known: HashMap<NodeId<u64>, f64> = HashMap::new();
         known.insert(leaf1, 1.0);
         known.insert(leaf2, 0.5);
 
-        let result = g.compute_influence(root, &known, |_parent, children| {
-            if children.is_empty() {
-                0.0
+        g.compute_with_root(root, |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(&node_id).unwrap_or(&0.0)
             } else {
-                let sum: f64 = children.iter().map(|c| c.influence).sum();
+                let sum: f64 = children
+                    .iter()
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0))
+                    .sum();
                 sum / (children.len() as f64)
-            }
+            };
+
+            known.insert(node_id.clone(), state);
         });
 
-        assert_eq!(result[&leaf1], 1.0);
-        assert_eq!(result[&leaf2], 0.5);
-        assert_eq!(result[&mid], 0.75);
-        assert_eq!(result[&root], 0.75);
+        assert_eq!(known[&leaf1], 1.0);
+        assert_eq!(known[&leaf2], 0.5);
+        assert_eq!(known[&mid], 0.75);
+        assert_eq!(known[&root], 0.75);
     }
 
     #[test]
     fn compute_with_string_ids() {
-        let mut g = Schema::<Attributes, Attributes, &str>::new();
-        g.insert_node(NodeId("root"), Attributes::new());
-        g.insert_node(NodeId("mid"), Attributes::new());
-        g.insert_node(NodeId("l1"), Attributes::new());
-        g.insert_node(NodeId("l2"), Attributes::new());
-        g.insert_edge(
-            EdgeId("mid->root"),
-            NodeId("mid"),
-            NodeId("root"),
+        let mut g = Schema::<Attributes, Attributes, String>::new();
+        let _ = g.insert_node(NodeId("root".to_string()), Attributes::new());
+        let _ = g.insert_node(NodeId("mid".to_string()), Attributes::new());
+        let _ = g.insert_node(NodeId("l1".to_string()), Attributes::new());
+        let _ = g.insert_node(NodeId("l2".to_string()), Attributes::new());
+        let _ = g.insert_edge(
+            EdgeId("mid->root".to_string()),
+            NodeId("mid".to_string()),
+            NodeId("root".to_string()),
             Attributes::new(),
         );
-        g.insert_edge(
-            EdgeId("l1->mid"),
-            NodeId("l1"),
-            NodeId("mid"),
+        let _ = g.insert_edge(
+            EdgeId("l1->mid".to_string()),
+            NodeId("l1".to_string()),
+            NodeId("mid".to_string()),
             Attributes::new(),
         );
-        g.insert_edge(
-            EdgeId("l2->mid"),
-            NodeId("l2"),
-            NodeId("mid"),
+        let _ = g.insert_edge(
+            EdgeId("l2->mid".to_string()),
+            NodeId("l2".to_string()),
+            NodeId("mid".to_string()),
             Attributes::new(),
         );
 
         assert_eq!(g.node_count(), 4);
         assert_eq!(g.edge_count(), 3);
 
-        let root = g.node(NodeId("root")).unwrap();
-        assert_eq!(root.id(), NodeId("root"));
-        let l1 = g.node(NodeId("l1")).unwrap();
-        assert_eq!(l1.id(), NodeId("l1"));
+        let root = g.node(&NodeId("root".to_string())).unwrap();
+        assert_eq!(root.id, NodeId("root".to_string()));
+        let l1 = g.node(&NodeId("l1".to_string())).unwrap();
+        assert_eq!(l1.id, NodeId("l1".to_string()));
 
-        let mut known: HashMap<NodeId<&str>, f64> = HashMap::new();
+        let mut known: HashMap<NodeId<String>, f64> = HashMap::new();
 
-        fn compute_fn(
-            _parent: &Node<Attributes, &str>,
-            children: &[ChildInfluence<'_, Attributes, Attributes, &str>],
-        ) -> f64 {
-            if children.is_empty() {
-                0.0
+        g.compute_with_root(NodeId("root".to_string()), |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(node_id).unwrap_or(&0.0)
             } else {
-                let sum: f64 = children.iter().map(|c| c.influence).sum();
+                let sum: f64 = children
+                    .iter()
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0))
+                    .sum();
                 sum / (children.len() as f64)
-            }
-        }
+            };
 
-        let result = g.compute_influence(NodeId("root"), &known, compute_fn);
+            known.insert(node_id.clone(), state);
+        });
 
-        assert_eq!(result[&NodeId("l1")], 0.0);
-        assert_eq!(result[&NodeId("l2")], 0.0);
-        assert_eq!(result[&NodeId("mid")], 0.0);
-        assert_eq!(result[&NodeId("root")], 0.0);
+        assert_eq!(known[&NodeId("l1".to_string())], 0.0);
+        assert_eq!(known[&NodeId("l2".to_string())], 0.0);
+        assert_eq!(known[&NodeId("mid".to_string())], 0.0);
+        assert_eq!(known[&NodeId("root".to_string())], 0.0);
 
-        known.insert(NodeId("l1"), 1.0);
-        known.insert(NodeId("l2"), 0.5);
+        known.insert(NodeId("l1".to_string()), 1.0);
+        known.insert(NodeId("l2".to_string()), 0.5);
 
-        let result = g.compute_influence(NodeId("root"), &known, compute_fn);
+        g.compute_with_root(NodeId("root".to_string()), |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(node_id).unwrap_or(&0.0)
+            } else {
+                let sum: f64 = children
+                    .iter()
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0))
+                    .sum();
+                sum / (children.len() as f64)
+            };
 
-        assert_eq!(result[&NodeId("l1")], 1.0);
-        assert_eq!(result[&NodeId("l2")], 0.5);
-        assert_eq!(result[&NodeId("mid")], 0.75);
-        assert_eq!(result[&NodeId("root")], 0.75);
+            known.insert(node_id.clone(), state);
+        });
+
+        assert_eq!(known[&NodeId("l1".to_string())], 1.0);
+        assert_eq!(known[&NodeId("l2".to_string())], 0.5);
+        assert_eq!(known[&NodeId("mid".to_string())], 0.75);
+        assert_eq!(known[&NodeId("root".to_string())], 0.75);
     }
 
     #[test]
@@ -350,7 +364,7 @@ mod core_tests {
 
         let mut g = Schema::<NodeAttributes, EdgeAttributes, u64>::new();
 
-        g.insert_node(
+        let _ = g.insert_node(
             NodeId(1),
             NodeAttributes {
                 external_id: "root".to_string(),
@@ -358,7 +372,7 @@ mod core_tests {
             },
         );
 
-        g.insert_node(
+        let _ = g.insert_node(
             NodeId(2),
             NodeAttributes {
                 external_id: "mid".to_string(),
@@ -366,7 +380,7 @@ mod core_tests {
             },
         );
 
-        g.insert_node(
+        let _ = g.insert_node(
             NodeId(3),
             NodeAttributes {
                 external_id: "l1".to_string(),
@@ -374,7 +388,7 @@ mod core_tests {
             },
         );
 
-        g.insert_node(
+        let _ = g.insert_node(
             NodeId(4),
             NodeAttributes {
                 external_id: "l2".to_string(),
@@ -382,7 +396,7 @@ mod core_tests {
             },
         );
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId(1),
             NodeId(2),
             NodeId(1),
@@ -392,7 +406,7 @@ mod core_tests {
             },
         );
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId(2),
             NodeId(3),
             NodeId(2),
@@ -402,7 +416,7 @@ mod core_tests {
             },
         );
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId(3),
             NodeId(4),
             NodeId(2),
@@ -412,46 +426,55 @@ mod core_tests {
             },
         );
 
-        assert_eq!(g.node(NodeId(4)).unwrap().attrs.external_id, "l2");
+        assert_eq!(g.node(&NodeId(4)).unwrap().attrs.external_id, "l2");
         assert_eq!(
-            g.node(NodeId(4)).unwrap().attrs.node_type,
+            g.node(&NodeId(4)).unwrap().attrs.node_type,
             NodeType::Incident
         );
-        assert_eq!(g.edge(EdgeId(3)).unwrap().attrs.external_id, "l2->mid");
-
-        fn compute_fn(
-            _parent: &Node<NodeAttributes, u64>,
-            children: &[ChildInfluence<'_, NodeAttributes, EdgeAttributes, u64>],
-        ) -> f64 {
-            if children.is_empty() {
-                0.0
-            } else {
-                let sum: f64 = children
-                    .iter()
-                    .map(|c| c.influence * c.edge.attrs.weight)
-                    .sum();
-                sum / (children.len() as f64)
-            }
-        }
+        assert_eq!(g.edge(&EdgeId(3)).unwrap().attrs.external_id, "l2->mid");
 
         let mut known: HashMap<NodeId<u64>, f64> = HashMap::new();
 
-        let result = g.compute_influence(NodeId(1), &known, compute_fn);
+        g.compute_with_root(NodeId(1), |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(node_id).unwrap_or(&0.0)
+            } else {
+                let sum: f64 = children
+                    .iter()
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0))
+                    .sum();
+                sum / (children.len() as f64)
+            };
 
-        assert_eq!(result[&NodeId(4)], 0.0);
-        assert_eq!(result[&NodeId(3)], 0.0);
-        assert_eq!(result[&NodeId(2)], 0.0);
-        assert_eq!(result[&NodeId(1)], 0.0);
+            known.insert(*node_id, state);
+        });
+
+        assert_eq!(known[&NodeId(4)], 0.0);
+        assert_eq!(known[&NodeId(3)], 0.0);
+        assert_eq!(known[&NodeId(2)], 0.0);
+        assert_eq!(known[&NodeId(1)], 0.0);
 
         known.insert(NodeId(3), 1.0);
         known.insert(NodeId(4), 0.5);
 
-        let result = g.compute_influence(NodeId(1), &known, compute_fn);
+        g.compute_with_root(NodeId(1), |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(node_id).unwrap_or(&0.0)
+            } else {
+                let sum: f64 = children
+                    .iter()
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0) * c.attrs.weight)
+                    .sum();
+                sum / (children.len() as f64)
+            };
 
-        assert_eq!(result[&NodeId(4)], 0.5);
-        assert_eq!(result[&NodeId(3)], 1.0);
-        assert_eq!(result[&NodeId(2)], 0.4375);
-        assert_eq!(result[&NodeId(1)], 0.21875);
+            known.insert(*node_id, state);
+        });
+
+        assert_eq!(known[&NodeId(4)], 0.5);
+        assert_eq!(known[&NodeId(3)], 1.0);
+        assert_eq!(known[&NodeId(2)], 0.4375);
+        assert_eq!(known[&NodeId(1)], 0.21875);
     }
 
     #[test]
@@ -463,70 +486,79 @@ mod core_tests {
 
         let mut g = Schema::<Attributes, EdgeAttributes, &str>::new();
 
-        g.insert_node(NodeId("root"), Attributes::new());
-        g.insert_node(NodeId("mid1"), Attributes::new());
-        g.insert_node(NodeId("mid2"), Attributes::new());
-        g.insert_node(NodeId("l1"), Attributes::new());
+        let _ = g.insert_node(NodeId("root"), Attributes::new());
+        let _ = g.insert_node(NodeId("mid1"), Attributes::new());
+        let _ = g.insert_node(NodeId("mid2"), Attributes::new());
+        let _ = g.insert_node(NodeId("l1"), Attributes::new());
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId("mid1->root"),
             NodeId("mid1"),
             NodeId("root"),
             EdgeAttributes { weight: 1.0 },
         );
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId("mid2->root"),
             NodeId("mid2"),
             NodeId("root"),
             EdgeAttributes { weight: 1.0 },
         );
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId("l1->mid1"),
             NodeId("l1"),
             NodeId("mid1"),
             EdgeAttributes { weight: 1.0 },
         );
 
-        g.insert_edge(
+        let _ = g.insert_edge(
             EdgeId("l1->mid2"),
             NodeId("l1"),
             NodeId("mid2"),
             EdgeAttributes { weight: 0.5 },
         );
 
-        fn compute_fn(
-            _parent: &Node<Attributes, &str>,
-            children: &[ChildInfluence<'_, Attributes, EdgeAttributes, &str>],
-        ) -> f64 {
-            if children.is_empty() {
-                0.0
+        let mut known: HashMap<NodeId<&str>, f64> = HashMap::new();
+
+        g.compute_with_root(NodeId("root"), |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(node_id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
-                    .map(|c| c.influence * c.edge.attrs.weight)
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0) * c.attrs.weight)
                     .sum();
                 sum / (children.len() as f64)
-            }
-        }
+            };
 
-        let mut known: HashMap<NodeId<&str>, f64> = HashMap::new();
+            known.insert(*node_id, state);
+        });
 
-        let result = g.compute_influence(NodeId("root"), &known, compute_fn);
-
-        assert_eq!(result[&NodeId("l1")], 0.0);
-        assert_eq!(result[&NodeId("mid2")], 0.0);
-        assert_eq!(result[&NodeId("mid1")], 0.0);
-        assert_eq!(result[&NodeId("root")], 0.0);
+        assert_eq!(known[&NodeId("l1")], 0.0);
+        assert_eq!(known[&NodeId("mid2")], 0.0);
+        assert_eq!(known[&NodeId("mid1")], 0.0);
+        assert_eq!(known[&NodeId("root")], 0.0);
 
         known.insert(NodeId("l1"), 1.0);
 
-        let result = g.compute_influence(NodeId("root"), &known, compute_fn);
+        g.compute_with_root(NodeId("root"), |node_id, children| {
+            let state = if children.is_empty() {
+                *known.get(node_id).unwrap_or(&0.0)
+            } else {
+                let sum: f64 = children
+                    .iter()
+                    .map(|c| known.get(&c.from).unwrap_or(&0.0) * c.attrs.weight)
+                    .sum();
+                sum / (children.len() as f64)
+            };
 
-        assert_eq!(result[&NodeId("l1")], 1.0);
-        assert_eq!(result[&NodeId("mid2")], 0.5);
-        assert_eq!(result[&NodeId("mid1")], 1.0);
-        assert_eq!(result[&NodeId("root")], 0.75);
+            known.insert(*node_id, state);
+        });
+
+        assert_eq!(known[&NodeId("l1")], 1.0);
+        assert_eq!(known[&NodeId("mid2")], 0.5);
+        assert_eq!(known[&NodeId("mid1")], 1.0);
+        assert_eq!(known[&NodeId("root")], 0.75);
     }
 }
