@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package ica.schema.v1;
+
+message Attribute {
+  string key = 1;
+
+  oneof value {
+    string text = 2;
+    int64 integer = 3;
+    double float = 4;
+    bool boolean = 5;
+  }
+}
+
+message CreateSchemaRequest {
+  string schema_id = 1;
+}
+
+message CreateSchemaResponse {
+  string schema_id = 1;
+}
+
+message DeleteSchemaRequest {
+  string schema_id = 1;
+}
+
+message DeleteSchemaResponse {}
+
+message AddNodeRequest {
+  string schema_id = 1;
+  repeated Attribute attributes = 2;
+  string node_id = 3;
+}
+
+message AddNodeResponse {
+  string node_id = 1;
+}
+
+message RemoveNodeRequest {
+  string schema_id = 1;
+  string node_id = 2;
+}
+
+message RemoveNodeResponse {}
+
+message AddEdgeRequest {
+  string schema_id = 1;
+  string edge_id = 2;
+  string from_id = 3;
+  string to_id = 4;
+  repeated Attribute attributes = 5;
+}
+
+message AddEdgeResponse {
+  string edge_id = 1;
+}
+
+message RemoveEdgeRequest {
+  string schema_id = 1;
+  string edge_id = 2;
+}
+
+message RemoveEdgeResponse {}
+
+message Incident {
+  // id узла-инцидента
+  string node_id = 1;
+  // Атрибуты узла-инцидента
+  repeated Attribute attributes = 2;
+  // Уровень критичности [0, 1]
+  double severity = 3;
+}
+
+message IncidentEdge {
+  // Id связи
+  string edge_id = 1;
+  // На какой узел оказывает воздействие инцидент
+  string to_id = 2;
+  // Атрибуты связи
+  repeated Attribute attributes = 3;
+}
+
+message AddIncidentRequest {
+  // Id схемы
+  string schema_id = 1;
+  // Описание узла-инцидента
+  Incident incident = 2;
+  // Описание связи между узлом-инцидентом и существующем узлом на схеме
+  IncidentEdge edge = 3;
+}
+
+message AddIncidentResponse {
+  string node_id = 1;
+  string edge_id = 2;
+}
+
+message ComputeStateRequest {
+  string schema_id = 1;
+  string root_node_id = 2;
+}
+
+message ComputeStateResponse {
+  string node_id = 1;
+  double state = 2;
+}
+
+message Node {
+  string node_id = 1;
+  double state = 2;
+  repeated Attribute attributes = 3;
+}
+
+message Edge {
+  string edge_id = 1;
+  string from_id = 2;
+  string to_id = 3;
+  double weight = 4;
+}
+
+message GetSchemaRequest {
+  string schema_id = 1;
+}
+
+message GetSchemaResponse {
+  oneof item {
+    Node node = 1;
+    Edge edge = 2;
+  }
+}
+
+service SchemaService {
+  // Создать пустую схему с указанным идентификатором.
+  rpc CreateSchema(CreateSchemaRequest) returns (CreateSchemaResponse);
+
+  // Получить схему в виде стрима
+  rpc GetSchema(GetSchemaRequest) returns (stream GetSchemaResponse);
+
+  // Удалить схему и все её узлы/рёбра.
+  rpc DeleteSchema(DeleteSchemaRequest) returns (DeleteSchemaResponse);
+
+  // Добавить узел в указанную схему.
+  rpc AddNode(AddNodeRequest) returns (AddNodeResponse);
+
+  // Удалить узел и все инцидентные рёбра.
+  rpc RemoveNode(RemoveNodeRequest) returns (RemoveNodeResponse);
+
+  // Добавить ребро между двумя существующими узлами.
+  rpc AddEdge(AddEdgeRequest) returns (AddEdgeResponse);
+
+  // Удалить ребро по идентификатору.
+  rpc RemoveEdge(RemoveEdgeRequest) returns (RemoveEdgeResponse);
+
+  // Создать узел с известным влиянием и сразу привязать его к существующему узлу.
+  rpc AddIncident(AddIncidentRequest) returns (AddIncidentResponse);
+
+  // Расчитать состояние системы
+  rpc ComputeState(ComputeStateRequest) returns (stream ComputeStateResponse);
+}

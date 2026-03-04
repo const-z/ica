@@ -1,0 +1,387 @@
+#[cfg(test)]
+pub mod grpc_tests {
+    use std::collections::HashMap;
+    use std::time::Duration;
+    use tokio::time::sleep;
+    use tokio_stream::StreamExt;
+    use tonic::Request;
+    use tonic::transport::{Channel, Server};
+
+    use ica_engine::SchemaServiceImpl;
+    use ica_engine::schema_contracts::schema_service_client::SchemaServiceClient;
+    use ica_engine::schema_contracts::schema_service_server::SchemaServiceServer;
+    use ica_engine::schema_contracts::*;
+
+    async fn setup_test_server() -> SchemaServiceClient<Channel> {
+        let service = SchemaServiceImpl::new();
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            Server::builder()
+                .add_service(SchemaServiceServer::new(service))
+                .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+                .await
+                .unwrap();
+        });
+
+        sleep(Duration::from_millis(100)).await;
+
+        SchemaServiceClient::connect(format!("http://{}", addr))
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_create_and_delete_schema() {
+        let mut client = setup_test_server().await;
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-1".to_string(),
+        };
+        let response = client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+        assert_eq!(response.get_ref().schema_id, "test-schema-1");
+
+        let create_req2 = CreateSchemaRequest {
+            schema_id: "test-schema-1".to_string(),
+        };
+        let result = client.create_schema(Request::new(create_req2)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::AlreadyExists);
+
+        let delete_req = DeleteSchemaRequest {
+            schema_id: "test-schema-1".to_string(),
+        };
+        let response = client
+            .delete_schema(Request::new(delete_req))
+            .await
+            .unwrap();
+        assert!(response.get_ref() == &DeleteSchemaResponse {});
+
+        let delete_req2 = DeleteSchemaRequest {
+            schema_id: "test-schema-1".to_string(),
+        };
+        let result = client.delete_schema(Request::new(delete_req2)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_add_and_remove_nodes() {
+        let mut client = setup_test_server().await;
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-2".to_string(),
+        };
+        client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+
+        let add_node_req = AddNodeRequest {
+            schema_id: "test-schema-2".to_string(),
+            node_id: "1".to_string(),
+            attributes: vec![Attribute {
+                key: "name".to_string(),
+                value: Some(attribute::Value::Text("node-1".to_string())),
+            }],
+        };
+        let response = client.add_node(Request::new(add_node_req)).await.unwrap();
+        assert_eq!(response.get_ref().node_id, "1");
+
+        let add_node_req2 = AddNodeRequest {
+            schema_id: "test-schema-2".to_string(),
+            node_id: "1".to_string(),
+            attributes: vec![],
+        };
+        let result = client.add_node(Request::new(add_node_req2)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::AlreadyExists);
+
+        let remove_node_req = RemoveNodeRequest {
+            schema_id: "test-schema-2".to_string(),
+            node_id: "1".to_string(),
+        };
+        client
+            .remove_node(Request::new(remove_node_req))
+            .await
+            .unwrap();
+
+        let remove_node_req2 = RemoveNodeRequest {
+            schema_id: "test-schema-2".to_string(),
+            node_id: "1".to_string(),
+        };
+        let result = client.remove_node(Request::new(remove_node_req2)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_add_and_remove_edges() {
+        let mut client = setup_test_server().await;
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-3".to_string(),
+        };
+        client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-3".to_string(),
+                node_id: "1".to_string(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-3".to_string(),
+                node_id: "2".to_string(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        let add_edge_req = AddEdgeRequest {
+            schema_id: "test-schema-3".to_string(),
+            from_id: "1".to_string(),
+            to_id: "2".to_string(),
+            edge_id: "10".to_string(),
+            attributes: vec![Attribute {
+                key: "weight".to_string(),
+                value: Some(attribute::Value::Float(0.5)),
+            }],
+        };
+        let response = client.add_edge(Request::new(add_edge_req)).await.unwrap();
+        assert_eq!(response.get_ref().edge_id, "10");
+
+        let add_edge_req2 = AddEdgeRequest {
+            schema_id: "test-schema-3".to_string(),
+            from_id: "1".to_string(),
+            to_id: "2".to_string(),
+            edge_id: "10".to_string(),
+            attributes: vec![],
+        };
+        let result = client.add_edge(Request::new(add_edge_req2)).await;
+        assert!(result.is_err());
+        let errr = result.unwrap_err();
+        assert_eq!(errr.code(), tonic::Code::AlreadyExists);
+
+        let remove_edge_req = RemoveEdgeRequest {
+            schema_id: "test-schema-3".to_string(),
+            edge_id: "10".to_string(),
+        };
+        client
+            .remove_edge(Request::new(remove_edge_req))
+            .await
+            .unwrap();
+
+        let remove_edge_req2 = RemoveEdgeRequest {
+            schema_id: "test-schema-3".to_string(),
+            edge_id: "10".to_string(),
+        };
+        let result = client.remove_edge(Request::new(remove_edge_req2)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_add_incident() {
+        let mut client = setup_test_server().await;
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-4".to_string(),
+        };
+        client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-4".to_string(),
+                node_id: "100".to_string(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        let add_node_req = AddIncidentRequest {
+            schema_id: "test-schema-4".to_string(),
+            incident: Some(Incident {
+                node_id: "200".to_string(),
+                attributes: vec![Attribute {
+                    key: "name".to_string(),
+                    value: Some(attribute::Value::Text("leaf-node".to_string())),
+                }],
+                severity: 0.8,
+            }),
+            edge: Some(IncidentEdge {
+                edge_id: "300".to_string(),
+                to_id: "100".to_string(),
+                attributes: vec![],
+            }),
+        };
+        let response = client
+            .add_incident(Request::new(add_node_req))
+            .await
+            .unwrap();
+        assert_eq!(response.get_ref().node_id, "200");
+        assert_eq!(response.get_ref().edge_id, "300");
+    }
+
+    #[tokio::test]
+    async fn test_compute_state() {
+        let mut client = setup_test_server().await;
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-5".to_string(),
+        };
+        client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+
+        let root_id = "root".to_string();
+        let mid_id = "mid-1".to_string();
+        let leaf1_id = "leaf-1".to_string();
+        let leaf2_id = "leaf-2".to_string();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-5".to_string(),
+                node_id: root_id.clone(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-5".to_string(),
+                node_id: mid_id.clone(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_incident(Request::new(AddIncidentRequest {
+                schema_id: "test-schema-5".to_string(),
+                incident: Some(Incident {
+                    node_id: leaf1_id.clone(),
+                    attributes: vec![],
+                    severity: 1.0,
+                }),
+                edge: Some(IncidentEdge {
+                    edge_id: "10".to_string(),
+                    to_id: mid_id.clone(),
+                    attributes: vec![],
+                }),
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_incident(Request::new(AddIncidentRequest {
+                schema_id: "test-schema-5".to_string(),
+                incident: Some(Incident {
+                    node_id: leaf2_id.clone(),
+                    attributes: vec![],
+                    severity: 0.5,
+                }),
+                edge: Some(IncidentEdge {
+                    edge_id: "11".to_string(),
+                    to_id: mid_id.clone(),
+                    attributes: vec![],
+                }),
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_edge(Request::new(AddEdgeRequest {
+                schema_id: "test-schema-5".to_string(),
+                from_id: mid_id.clone(),
+                to_id: root_id.clone(),
+                edge_id: "12".to_string(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        let compute_req = ComputeStateRequest {
+            schema_id: "test-schema-5".to_string(),
+            root_node_id: root_id.clone(),
+        };
+
+        let mut stream = client
+            .compute_state(Request::new(compute_req))
+            .await
+            .unwrap()
+            .into_inner();
+
+        let mut states = HashMap::new();
+        while let Some(response) = stream.next().await {
+            match response {
+                Ok(data) => {
+                    states.insert(data.node_id, data.state);
+                }
+                Err(err) => panic!("Error: {err}"),
+            }
+        }
+
+        assert_eq!(states.len(), 4);
+
+        let root_state = states.get(&root_id).unwrap();
+        let mid_state = states.get(&mid_id).unwrap();
+        let leaf1_state = states.get(&leaf1_id).unwrap();
+        let leaf2_state = states.get(&leaf2_id).unwrap();
+
+        assert!((leaf1_state - 1.0).abs() < 1e-9);
+        assert!((leaf2_state - 0.5).abs() < 1e-9);
+        assert!((mid_state - 0.75).abs() < 1e-9);
+        assert!((root_state - 0.75).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn test_error_cases() {
+        let mut client = setup_test_server().await;
+
+        let add_node_req = AddNodeRequest {
+            schema_id: "non-existent".to_string(),
+            node_id: "1".to_string(),
+            attributes: vec![],
+        };
+        let result = client.add_node(Request::new(add_node_req)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-6".to_string(),
+        };
+        client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+
+        let add_edge_req = AddEdgeRequest {
+            schema_id: "test-schema-6".to_string(),
+            from_id: "999".to_string(),
+            to_id: "1000".to_string(),
+            edge_id: "1".to_string(),
+            attributes: vec![],
+        };
+        let result = client.add_edge(Request::new(add_edge_req)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
+    }
+}
