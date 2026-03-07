@@ -15,6 +15,7 @@ message Attribute {
 
 message CreateSchemaRequest {
   string schema_id = 1;
+  repeated Attribute attributes = 2;
 }
 
 message CreateSchemaResponse {
@@ -107,7 +108,6 @@ message ComputeStateResponse {
 
 message Node {
   string node_id = 1;
-  double state = 2;
   repeated Attribute attributes = 3;
 }
 
@@ -115,11 +115,11 @@ message Edge {
   string edge_id = 1;
   string from_id = 2;
   string to_id = 3;
-  double weight = 4;
 }
 
 message GetSchemaRequest {
   string schema_id = 1;
+  bool include_incidents = 2;
 }
 
 message GetSchemaResponse {
@@ -127,6 +127,43 @@ message GetSchemaResponse {
     Node node = 1;
     Edge edge = 2;
   }
+}
+
+message ExportSchemaRequest {
+  string schema_id = 1;
+}
+
+message ExportSchemaResponse {
+  string chunk = 1;
+}
+
+message ImportSchemaRequest {
+  string chunk = 1;
+}
+
+message ImportSchemaResponse {}
+
+message LayoutRequest {
+  string schema_id = 1;
+}
+
+message LayoutResponse {}
+
+message ListSchemasRequest {}
+
+message ListSchemasResponse {
+  repeated Schema schemas = 1;
+
+  message Schema {
+    string schema_id = 1;
+    repeated Attribute attributes = 2;
+  }
+}
+
+message GetStateRequest {}
+
+message GetStateResponse {
+  repeated ComputeStateResponse states = 1;
 }
 
 service SchemaService {
@@ -142,7 +179,7 @@ service SchemaService {
   // Добавить узел в указанную схему.
   rpc AddNode(AddNodeRequest) returns (AddNodeResponse);
 
-  // Удалить узел и все инцидентные рёбра.
+  // Удалить узел и все его рёбра.
   rpc RemoveNode(RemoveNodeRequest) returns (RemoveNodeResponse);
 
   // Добавить ребро между двумя существующими узлами.
@@ -156,4 +193,18 @@ service SchemaService {
 
   // Расчитать состояние системы
   rpc ComputeState(ComputeStateRequest) returns (stream ComputeStateResponse);
+
+  // Экспортировать схему в yaml
+  rpc ExportSchema(ExportSchemaRequest) returns (stream ExportSchemaResponse);
+
+  // Импортировать схему из yaml
+  rpc ImportSchema(stream ImportSchemaRequest) returns (ImportSchemaResponse);
+
+  // Расчитать положение узлов
+  rpc Layout(LayoutRequest) returns (LayoutResponse);
+
+  // Получить список схем в хранилище
+  rpc ListSchemas(ListSchemasRequest) returns (ListSchemasResponse);
+
+  rpc GetState(GetStateRequest) returns (GetStateResponse);
 }

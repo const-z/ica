@@ -2,7 +2,7 @@ use std::{fmt::Debug, hash::Hash};
 
 use super::{EdgeId, NodeId};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Edge<A, T: Debug + Hash + Eq> {
     pub id: EdgeId<T>,
     pub from: NodeId<T>,

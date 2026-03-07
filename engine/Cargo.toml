@@ -1,17 +1,45 @@
 [package]
 name = "ica-engine"
-version = "0.1.0"
-edition = "2024"
 description = "Impact Cascade Assessment (Оценка влияния)"
+default-run = "ica-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
 
 [dependencies]
 ica-core = { path = "../core", package = "ica-core", version = "0.1.0" }
+ica-layout = { path = "../layout", package = "ica-layout", version = "0.1.0" }
 prost = { version = "0.14.3" }
+serde = "1.0.228"
+serde_json = "1.0.149"
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-stream = "0.1"
 tonic = { version = "0.14.3", features = ["transport", "codegen"] }
 tonic-prost = { version = "0.14.3" }
+rand = "0.10.0"
+tonic-web = "0.14.3"
+tower-http = { version = "0.6.8", features = ["cors"] }
 
 [build-dependencies]
 tonic-prost-build = { version = "0.14.3" }
 walkdir = { version = "2.5" }
+
+[[bin]]
+name = "download_schema"
+path = "bin/download_schema.rs"
+
+[[bin]]
+name = "upload_schema"
+path = "bin/upload_schema.rs"
+
+[[bin]]
+name = "generate_schema"
+path = "bin/generate_schema.rs"
+
+[[bin]]
+name = "incident_provider"
+path = "bin/incident_provider.rs"

@@ -1,5 +1,6 @@
 #[cfg(test)]
 pub mod grpc_tests {
+
     use std::collections::HashMap;
     use std::time::Duration;
     use tokio::time::sleep;
@@ -39,6 +40,7 @@ pub mod grpc_tests {
 
         let create_req = CreateSchemaRequest {
             schema_id: "test-schema-1".to_string(),
+            attributes: vec![],
         };
         let response = client
             .create_schema(Request::new(create_req))
@@ -48,6 +50,7 @@ pub mod grpc_tests {
 
         let create_req2 = CreateSchemaRequest {
             schema_id: "test-schema-1".to_string(),
+            attributes: vec![],
         };
         let result = client.create_schema(Request::new(create_req2)).await;
         assert!(result.is_err());
@@ -76,6 +79,7 @@ pub mod grpc_tests {
 
         let create_req = CreateSchemaRequest {
             schema_id: "test-schema-2".to_string(),
+            attributes: vec![],
         };
         client
             .create_schema(Request::new(create_req))
@@ -126,6 +130,7 @@ pub mod grpc_tests {
 
         let create_req = CreateSchemaRequest {
             schema_id: "test-schema-3".to_string(),
+            attributes: vec![],
         };
         client
             .create_schema(Request::new(create_req))
@@ -199,6 +204,7 @@ pub mod grpc_tests {
 
         let create_req = CreateSchemaRequest {
             schema_id: "test-schema-4".to_string(),
+            attributes: vec![],
         };
         client
             .create_schema(Request::new(create_req))
@@ -244,6 +250,7 @@ pub mod grpc_tests {
 
         let create_req = CreateSchemaRequest {
             schema_id: "test-schema-5".to_string(),
+            attributes: vec![],
         };
         client
             .create_schema(Request::new(create_req))
@@ -367,6 +374,7 @@ pub mod grpc_tests {
 
         let create_req = CreateSchemaRequest {
             schema_id: "test-schema-6".to_string(),
+            attributes: vec![],
         };
         client
             .create_schema(Request::new(create_req))
@@ -383,5 +391,205 @@ pub mod grpc_tests {
         let result = client.add_edge(Request::new(add_edge_req)).await;
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), tonic::Code::NotFound);
+    }
+
+    #[tokio::test]
+    async fn test_export_schema() {
+        let mut client = setup_test_server().await;
+
+        let create_req = CreateSchemaRequest {
+            schema_id: "test-schema-5".to_string(),
+            attributes: vec![],
+        };
+        client
+            .create_schema(Request::new(create_req))
+            .await
+            .unwrap();
+
+        let root_id = "root".to_string();
+        let mid_id = "mid-1".to_string();
+        let leaf1_id = "leaf-1".to_string();
+        let leaf2_id = "leaf-2".to_string();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-5".to_string(),
+                node_id: root_id.clone(),
+                attributes: vec![Attribute {
+                    key: "attr_key".to_string(),
+                    value: Some(attribute::Value::Text("This is text".to_string())),
+                }],
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_node(Request::new(AddNodeRequest {
+                schema_id: "test-schema-5".to_string(),
+                node_id: mid_id.clone(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_incident(Request::new(AddIncidentRequest {
+                schema_id: "test-schema-5".to_string(),
+                incident: Some(Incident {
+                    node_id: leaf1_id.clone(),
+                    attributes: vec![],
+                    severity: 1.0,
+                }),
+                edge: Some(IncidentEdge {
+                    edge_id: "10".to_string(),
+                    to_id: mid_id.clone(),
+                    attributes: vec![Attribute {
+                        key: "attr_key".to_string(),
+                        value: Some(attribute::Value::Text("Edge attribute".to_string())),
+                    }],
+                }),
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_incident(Request::new(AddIncidentRequest {
+                schema_id: "test-schema-5".to_string(),
+                incident: Some(Incident {
+                    node_id: leaf2_id.clone(),
+                    attributes: vec![],
+                    severity: 0.5,
+                }),
+                edge: Some(IncidentEdge {
+                    edge_id: "11".to_string(),
+                    to_id: mid_id.clone(),
+                    attributes: vec![],
+                }),
+            }))
+            .await
+            .unwrap();
+
+        client
+            .add_edge(Request::new(AddEdgeRequest {
+                schema_id: "test-schema-5".to_string(),
+                from_id: mid_id.clone(),
+                to_id: root_id.clone(),
+                edge_id: "12".to_string(),
+                attributes: vec![],
+            }))
+            .await
+            .unwrap();
+
+        let export_req = ExportSchemaRequest {
+            schema_id: "test-schema-5".to_string(),
+        };
+
+        let mut stream = client
+            .export_schema(Request::new(export_req))
+            .await
+            .unwrap()
+            .into_inner();
+
+        let mut chunks = vec![];
+        while let Some(response) = stream.next().await {
+            match response {
+                Ok(data) => {
+                    print!("{}", data.chunk);
+                    chunks.push(data.chunk);
+                }
+                Err(err) => panic!("Error: {err}"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_import_schema() {
+        let mut client = setup_test_server().await;
+        let jsonl_data = vec![
+            r#"{"Header":{"schema_id":"fg1KHvCamu","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"3o9ePvAi8N","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"fg1KHvCamu","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"TFFYUslmgi","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"AeTVFd3nPi","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"FMEX1yuIil","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"YvR1tFyftJ","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"Mb6bsADsG5","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"2kII0dfTpV","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"UO0QRttntR","attrs":{"inner":{}}}}"#,
+            r#"{"Node":{"id":"8Amd4c72PV","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"qx4H8SpEvh","from":"8Amd4c72PV","to":"UO0QRttntR","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"hhrYTyOjuk","from":"UO0QRttntR","to":"Mb6bsADsG5","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"ZiVRcC3COW","from":"FMEX1yuIil","to":"3o9ePvAi8N","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"sFVcPhbZfl","from":"YvR1tFyftJ","to":"8Amd4c72PV","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"mgHDcmq5gG","from":"AeTVFd3nPi","to":"fg1KHvCamu","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"VMY2uVmjXt","from":"Mb6bsADsG5","to":"AeTVFd3nPi","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"9SCdaGCcLq","from":"UO0QRttntR","to":"TFFYUslmgi","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"1hcazWNjF6","from":"2kII0dfTpV","to":"8Amd4c72PV","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"wnbWg2TsgM","from":"3o9ePvAi8N","to":"UO0QRttntR","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"4xwG4ZUvz9","from":"YvR1tFyftJ","to":"3o9ePvAi8N","attrs":{"inner":{}}}}"#,
+            r#"{"Edge":{"id":"HkKNpVGkzY","from":"TFFYUslmgi","to":"AeTVFd3nPi","attrs":{"inner":{}}}}"#,
+        ];
+
+        let (tx, rx) = tokio::sync::mpsc::channel(10);
+
+        tokio::spawn(async move {
+            for chunk in jsonl_data.iter() {
+                if let Err(err) = tx
+                    .send(ImportSchemaRequest {
+                        chunk: chunk.to_string(),
+                    })
+                    .await
+                {
+                    panic!("{err}");
+                }
+            }
+        });
+
+        let request_stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+        let request = tonic::Request::new(request_stream);
+
+        let response = client.import_schema(request).await;
+
+        assert!(response.is_ok())
+    }
+
+    #[tokio::test]
+    async fn test_list_schemas() {
+        let mut client = setup_test_server().await;
+        let _ = client
+            .create_schema(Request::new(CreateSchemaRequest {
+                schema_id: "111".to_string(),
+                attributes: vec![],
+            }))
+            .await;
+        let _ = client
+            .create_schema(Request::new(CreateSchemaRequest {
+                schema_id: "222".to_string(),
+                attributes: vec![],
+            }))
+            .await;
+        let _ = client
+            .create_schema(Request::new(CreateSchemaRequest {
+                schema_id: "333".to_string(),
+                attributes: vec![],
+            }))
+            .await;
+
+        let schemas = client
+            .list_schemas(Request::new(ListSchemasRequest {}))
+            .await;
+
+        assert!(schemas.is_ok());
+
+        let schemas = schemas.unwrap().into_inner().schemas;
+        assert_eq!(schemas.len(), 3);
+
+        for id in ["111", "222", "333"] {
+            assert!(
+                schemas.iter().any(|s| s.schema_id == id),
+                "{} not found in schemas",
+                id
+            );
+        }
     }
 }

@@ -12,45 +12,18 @@ pub use attributes::{AttributeKey, AttributeValue, Attributes};
 pub use edge::Edge;
 pub use node::Node;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct NodeId<T: Debug + Hash + Eq>(pub T);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct EdgeId<T: Debug + Hash>(pub T);
 
-pub trait HasId {
-    type Id: Copy;
-
-    fn id(&self) -> Self::Id;
-}
-
-impl<A, T> HasId for Node<A, T>
-where
-    T: Copy + Debug + Hash + Eq,
-{
-    type Id = NodeId<T>;
-
-    fn id(&self) -> Self::Id {
-        self.id
-    }
-}
-
-impl<A, T> HasId for Edge<A, T>
-where
-    T: Copy + Debug + Hash + Eq,
-{
-    type Id = EdgeId<T>;
-
-    fn id(&self) -> Self::Id {
-        self.id
-    }
-}
-
 #[derive(Debug, Default, Clone)]
-pub struct Schema<NA, EA, T>
+pub struct Schema<SA, NA, EA, T>
 where
     T: Clone + Default + Debug + Hash + Eq,
 {
+    pub attrs: SA,
     nodes: HashMap<NodeId<T>, Node<NA, T>>,
     edges: HashMap<EdgeId<T>, Edge<EA, T>>,
     edges_from: HashMap<NodeId<T>, Vec<EdgeId<T>>>,
@@ -85,14 +58,18 @@ impl std::fmt::Display for SchemaError {
     }
 }
 
-impl<NA, EA, T> Schema<NA, EA, T>
+impl<SA, NA, EA, T> Schema<SA, NA, EA, T>
 where
+    SA: Default,
     NA: Default,
     EA: Default,
     T: Clone + Default + Debug + Hash + Eq,
 {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(attrs: SA) -> Self {
+        Self {
+            attrs,
+            ..Self::default()
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -157,6 +134,16 @@ where
 
     pub fn node(&self, id: &NodeId<T>) -> Result<&Node<NA, T>, SchemaError> {
         match self.nodes.get(id) {
+            Some(node) => Ok(node),
+            None => Err(SchemaError::NodeNotFound(format!(
+                "Node id {:?} not found",
+                id
+            ))),
+        }
+    }
+
+    pub fn node_mut(&mut self, id: &NodeId<T>) -> Result<&mut Node<NA, T>, SchemaError> {
+        match self.nodes.get_mut(id) {
             Some(node) => Ok(node),
             None => Err(SchemaError::NodeNotFound(format!(
                 "Node id {:?} not found",
@@ -428,29 +415,31 @@ where
     /// схема ничего не знает о расчитанных состояних
     pub fn compute_with_root<F>(&self, root: NodeId<T>, mut combine: F)
     where
-        F: for<'a> FnMut(&'a NodeId<T>, Vec<&'a Edge<EA, T>>),
+        F: for<'a> FnMut(&'a Node<NA, T>, Vec<&'a Edge<EA, T>>),
     {
         let path = self.get_path_to_root(root).unwrap();
 
         for node_id in path.iter() {
             // у каждой ноды получить список нод влияющих на эту ноду
             let eges: Vec<&Edge<EA, T>> = self.incoming_edges(node_id).collect();
+            let node = self.node(node_id).unwrap();
             // выполнить combine с этими данными
-            combine(node_id, eges);
+            combine(node, eges);
         }
     }
 
     pub fn compute<F>(&self, mut combine: F)
     where
-        F: for<'a> FnMut(&'a NodeId<T>, Vec<&'a Edge<EA, T>>),
+        F: for<'a> FnMut(&'a Node<NA, T>, Vec<&'a Edge<EA, T>>),
     {
         let path = self.get_full_path().unwrap();
 
         for node_id in path.iter() {
             // у каждой ноды получить список нод влияющих на эту ноду
             let eges: Vec<&Edge<EA, T>> = self.incoming_edges(node_id).collect();
+            let node = self.node(node_id).unwrap();
             // выполнить combine с этими данными
-            combine(node_id, eges);
+            combine(node, eges);
         }
     }
 }
@@ -520,7 +509,8 @@ mod tests_schema {
             ),
         ];
 
-        let mut schema = Schema::<Attributes, Attributes, String>::new();
+        let mut schema =
+            Schema::<Attributes, Attributes, Attributes, String>::new(Attributes::new());
 
         for node_id in nodes {
             let _ = schema.insert_node(NodeId(node_id.to_string()), Attributes::new());
@@ -643,7 +633,8 @@ mod tests_schema {
             ),
         ];
 
-        let mut schema = Schema::<Attributes, Attributes, String>::new();
+        let mut schema =
+            Schema::<Attributes, Attributes, Attributes, String>::new(Attributes::new());
 
         for node_id in nodes.clone() {
             let _ = schema.insert_node(NodeId(node_id.to_string()), Attributes::new());

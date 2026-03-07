@@ -15,31 +15,25 @@ pub struct LayoutSettings {
 }
 
 pub trait Layout<T: Clone + Default + Debug + Hash + Eq> {
-    fn layout(
-        &self,
-        root_node_id: NodeId<T>,
-        settings: LayoutSettings,
-    ) -> HashMap<NodeId<T>, Position>;
+    fn layout(&self, settings: LayoutSettings) -> HashMap<NodeId<T>, Position>;
 }
 
-impl<NA: Default, EA: Default, T: Clone + Default + Debug + Hash + Eq> Layout<T>
-    for Schema<NA, EA, T>
+impl<SA: Default, NA: Default, EA: Default, T: Clone + Default + Debug + Hash + Eq> Layout<T>
+    for Schema<SA, NA, EA, T>
 {
-    fn layout(
-        &self,
-        root_node_id: NodeId<T>,
-        settings: LayoutSettings,
-    ) -> HashMap<NodeId<T>, Position> {
+    fn layout(&self, settings: LayoutSettings) -> HashMap<NodeId<T>, Position> {
         let mut positions = HashMap::new();
-
-        println!("✅ Start layout");
-
         let mut path = self.get_full_path().unwrap();
+
+        if path.is_empty() {
+            return positions;
+        }
+
         path.reverse();
 
         // Словарь для хранения уровня каждого узла (начиная с 0 для корня)
         let mut node_levels: HashMap<NodeId<T>, usize> = HashMap::new();
-        node_levels.insert(root_node_id.clone(), 0);
+        node_levels.insert(path.first().unwrap().clone(), 0);
 
         // Определяем уровни для всех узлов
         for node_id in &path {
@@ -91,7 +85,7 @@ impl<NA: Default, EA: Default, T: Clone + Default + Debug + Hash + Eq> Layout<T>
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_layout {
     use super::*;
     use ica_core::{Attributes, EdgeId, NodeId, Schema};
     use rand::random_range;
@@ -99,9 +93,59 @@ mod tests {
     use svg::node::element::{Line, Marker, Path, Rectangle, Text};
     use svg::{Document, Node};
 
+    fn generate_schema_test_data(
+        nodes_count: usize,
+    ) -> Schema<Attributes, Attributes, Attributes, u64> {
+        let mut g: Schema<Attributes, Attributes, Attributes, u64> = Schema::new(Attributes::new());
+        let mut node_counter: u64 = 0;
+        let mut edge_counter: u64 = 0;
+
+        let mut next_node_id = || -> NodeId<u64> {
+            node_counter += 1;
+            NodeId(node_counter)
+        };
+
+        let mut next_edge_id = || -> EdgeId<u64> {
+            edge_counter += 1;
+            EdgeId(edge_counter)
+        };
+
+        let root = next_node_id();
+        g.insert_node(root, Attributes::new()).unwrap();
+        let mut prev_level = vec![root];
+
+        while g.node_count() < nodes_count {
+            let mut current_level = Vec::new();
+            while current_level.is_empty() {
+                for &parent in &prev_level {
+                    for _ in 0..random_range(0..3) {
+                        let child_id = next_node_id();
+                        g.insert_node(child_id, Attributes::new()).unwrap();
+                        let _ = g.insert_edge(next_edge_id(), child_id, parent, Attributes::new());
+
+                        let rand_parent = random_range(0..=prev_level.len());
+                        if rand_parent > 0 && prev_level[rand_parent - 1].0 != parent.0 {
+                            let _ = g.insert_edge(
+                                next_edge_id(),
+                                child_id,
+                                prev_level[rand_parent - 1],
+                                Attributes::new(),
+                            );
+                        }
+
+                        current_level.push(child_id);
+                    }
+                }
+            }
+            prev_level = current_level;
+        }
+
+        g
+    }
+
     #[test]
     fn test_layout() {
-        let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
+        let mut g: Schema<Attributes, Attributes, Attributes, u64> = Schema::new(Attributes::new());
         let mut counter: u64 = 0;
 
         // nodes
@@ -142,7 +186,7 @@ mod tests {
             node_height: 40.0,
         };
 
-        let positions = g.layout(root, settings);
+        let positions = g.layout(settings);
 
         assert_eq!(positions.get(&root).unwrap().x, 0.0);
         assert_eq!(positions.get(&root).unwrap().y, 0.0);
@@ -157,49 +201,7 @@ mod tests {
     #[test]
     #[ignore = "Визуальный тест"]
     fn test_layout_random() {
-        let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
-        let mut node_counter: u64 = 0;
-        let mut edge_counter: u64 = 0;
-
-        let mut next_node_id = || -> NodeId<u64> {
-            node_counter += 1;
-            NodeId(node_counter)
-        };
-
-        let mut next_edge_id = || -> EdgeId<u64> {
-            edge_counter += 1;
-            EdgeId(edge_counter)
-        };
-
-        let root = next_node_id();
-        g.insert_node(root, Attributes::new()).unwrap();
-        let mut prev_level = vec![root];
-
-        while g.node_count() < 10000 {
-            let mut current_level = Vec::new();
-            while current_level.is_empty() {
-                for &parent in &prev_level {
-                    for _ in 0..random_range(0..3) {
-                        let child_id = next_node_id();
-                        g.insert_node(child_id, Attributes::new()).unwrap();
-                        let _ = g.insert_edge(next_edge_id(), child_id, parent, Attributes::new());
-
-                        let rand_parent = random_range(0..=prev_level.len());
-                        if rand_parent > 0 && prev_level[rand_parent - 1].0 != parent.0 {
-                            let _ = g.insert_edge(
-                                next_edge_id(),
-                                child_id,
-                                prev_level[rand_parent - 1],
-                                Attributes::new(),
-                            );
-                        }
-
-                        current_level.push(child_id);
-                    }
-                }
-            }
-            prev_level = current_level;
-        }
+        let g = generate_schema_test_data(10000);
 
         println!("Создан граф с {} узлами", g.node_count());
 
@@ -209,7 +211,7 @@ mod tests {
             node_height: 40.0,
         };
 
-        let positions = g.layout(root, settings.clone());
+        let positions = g.layout(settings.clone());
         println!("Сохраняем в image.svg ...");
 
         // DRAWING
@@ -284,8 +286,6 @@ mod tests {
 
         bounds.2 = bounds.2 + settings.node_width + bounds.0.abs();
         bounds.3 = bounds.3 + settings.node_height + bounds.1.abs();
-
-        println!("bounds {:?}", bounds);
 
         let mut document = Document::new()
             .set("width", bounds.2)
