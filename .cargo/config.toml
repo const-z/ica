@@ -5,5 +5,5 @@ br = "build --release"
 
 [net]
 retry = 3
-git-fetch-with-cli = true
+# git-fetch-with-cli = true
 # offline = true

@@ -1,62 +1,39 @@
-use std::{collections::HashMap, fmt::Debug, hash::Hash, sync::Arc};
-
-use ica_core::{NodeId, Schema};
+use ica_core::{Attributes, NodeId, Schema};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
-pub async fn compute<NA, EA, T, C>(
-    schema: Arc<RwLock<Schema<NA, EA, T>>>,
-    seeds: Arc<RwLock<HashMap<NodeId<T>, f64>>>,
-    f: C,
+pub async fn compute<C>(
+    schema: Arc<RwLock<Schema<Attributes, Attributes, Attributes, String>>>,
+    mut f: C,
 ) where
-    C: Fn(NodeId<T>, f64),
-    T: Debug + Hash + Eq + Clone + Default,
-    NA: Default,
-    EA: Default,
+    C: FnMut(NodeId<String>, f64),
 {
     let schema = schema.read().await;
-    let mut seeds = seeds.write().await;
+    let mut seeds: HashMap<NodeId<String>, f64> = HashMap::new();
 
-    schema.compute(|node_id, children| {
-        let state = if children.is_empty() {
-            *seeds.get(node_id).unwrap_or(&0.0)
+    schema.compute(|node, children| {
+        let state = if let Some(node_type) = node.attrs.get_text("type")
+            && node_type == "INCIDENT"
+        {
+            node.attrs.get_float("severity").unwrap_or(0.0)
+        } else if children.is_empty() {
+            *seeds.get(&node.id).unwrap_or(&0.0)
         } else {
-            let sum: f64 = children
+            let state: f64 = children
                 .iter()
-                .map(|c| seeds.get(&c.from).unwrap_or(&0.0))
-                .sum();
-            sum / (children.len() as f64)
+                .map(|c| {
+                    let weight = c.attrs.get_float("weight").unwrap_or(1.0);
+
+                    1.0 - seeds.get(&c.from).unwrap_or(&0.0) * weight
+                })
+                .reduce(|acc, i| acc * i)
+                .unwrap_or(0.0);
+
+            1.0 - state
         };
 
-        seeds.insert(node_id.clone(), state);
+        seeds.insert(node.id.clone(), state);
 
-        f(node_id.clone(), state);
+        f(node.id.clone(), state);
     });
 }
-
-// pub async fn compute<C>(
-//     root_node_id: NodeIdString,
-//     schema: Arc<RwLock<DomainSchema>>,
-//     seeds: Arc<RwLock<HashMap<NodeId<String>, f64>>>,
-//     f: C,
-// ) where
-//     C: Fn(NodeIdString, f64),
-// {
-//     let schema = schema.read().await;
-//     let mut seeds = seeds.write().await;
-
-//     schema.compute(root_node_id, |node_id, children| {
-//         let state = if children.is_empty() {
-//             *seeds.get(node_id).unwrap_or(&0.0)
-//         } else {
-//             let sum: f64 = children
-//                 .iter()
-//                 .map(|c| seeds.get(&c.from).unwrap_or(&0.0))
-//                 .sum();
-//             sum / (children.len() as f64)
-//         };
-
-//         seeds.insert(node_id.clone(), state);
-
-//         f(node_id.clone(), state);
-//     });
-// }

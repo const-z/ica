@@ -38,15 +38,18 @@ pub struct IncidentEdge<EA, T: Debug + Clone + Hash + Eq> {
 }
 
 /// Трейт для взаимодействия с абстрактным хранилищем данных
-pub trait SchemaRepository<NA, EA, T>
+pub trait SchemaRepository<SA, NA, EA, T>
 where
     T: Clone + Default + Hash + Eq + Debug,
 {
+    /// Получить список схем
+    async fn list_schemas(&self) -> Vec<(T, SA)>;
+
     /// Добавить схему
     async fn add_schema(
         &self,
         schema_id: impl Into<String>,
-        schema: Schema<NA, EA, T>,
+        attrs: SA,
     ) -> Result<(), RepositoryError>;
 
     /// Удалить схему
@@ -56,7 +59,7 @@ where
     async fn get_schema(
         &self,
         schema_id: T,
-    ) -> Result<Arc<RwLock<Schema<NA, EA, T>>>, RepositoryError>;
+    ) -> Result<Arc<RwLock<Schema<SA, NA, EA, T>>>, RepositoryError>;
 
     // Добавить узел на схему
     async fn add_node(

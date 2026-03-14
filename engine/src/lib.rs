@@ -8,3 +8,4 @@ mod repository;
 mod service;
 
 pub use service::SchemaServiceImpl;
+pub use service::{SchemaElement, SchemaHeader};

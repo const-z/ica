@@ -1,4 +1,12 @@
 [workspace]
-members = ["engine", "core", "layout"]
+members = ["engine", "core", "layout", "view"]
 
 resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+homepage = "https://blitzar-tech.github.io/egui_graphs/"
+repository = "https://github.com/const-z/ica"
+authors = ["ConstZ <info@const-z.com>"]

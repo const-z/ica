@@ -1,8 +1,6 @@
 pub mod schema;
 
-pub use schema::{
-    AttributeKey, AttributeValue, Attributes, Edge, EdgeId, HasId, Node, NodeId, Schema,
-};
+pub use schema::{AttributeKey, AttributeValue, Attributes, Edge, EdgeId, Node, NodeId, Schema};
 
 #[cfg(test)]
 mod core_tests {
@@ -35,7 +33,7 @@ mod core_tests {
             id: NodeId(1),
             attrs: node_attrs,
         };
-        assert_eq!(node.id(), NodeId(1));
+        assert_eq!(node.id, NodeId(1));
 
         let edge_attrs = Attributes::new();
         let edge = Edge {
@@ -44,14 +42,14 @@ mod core_tests {
             to: NodeId(2),
             attrs: edge_attrs,
         };
-        assert_eq!(edge.id(), EdgeId(10));
+        assert_eq!(edge.id, EdgeId(10));
         assert_eq!(edge.from, NodeId(1));
         assert_eq!(edge.to, NodeId(2));
     }
 
     #[test]
     fn adds_nodes_and_edges_and_counts_them() {
-        let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
+        let mut g: Schema<Attributes, Attributes, Attributes, u64> = Schema::new(Attributes::new());
         assert!(g.is_empty());
         assert_eq!(g.node_count(), 0);
         assert_eq!(g.edge_count(), 0);
@@ -88,7 +86,7 @@ mod core_tests {
 
     #[test]
     fn outgoing_and_incoming_edges_iterate_correctly() {
-        let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
+        let mut g: Schema<Attributes, Attributes, Attributes, u64> = Schema::new(Attributes::new());
         let mut counter = 0;
 
         let a = {
@@ -140,7 +138,7 @@ mod core_tests {
 
     #[test]
     fn removing_node_removes_incident_edges() {
-        let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
+        let mut g: Schema<Attributes, Attributes, Attributes, u64> = Schema::new(Attributes::new());
         let mut counter = 0;
 
         let a = {
@@ -195,7 +193,7 @@ mod core_tests {
 
     #[test]
     fn compute_impact_propagates_from_children_to_parents() {
-        let mut g: Schema<Attributes, Attributes, u64> = Schema::new();
+        let mut g: Schema<Attributes, Attributes, Attributes, u64> = Schema::new(Attributes::new());
         let mut counter = 0;
 
         let root = {
@@ -243,9 +241,9 @@ mod core_tests {
         known.insert(leaf1, 1.0);
         known.insert(leaf2, 0.5);
 
-        g.compute_with_root(root, |node_id, children| {
+        g.compute_with_root(root, |node, children| {
             let state = if children.is_empty() {
-                *known.get(&node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -254,7 +252,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(node_id.clone(), state);
+            known.insert(node.id, state);
         });
 
         assert_eq!(known[&leaf1], 1.0);
@@ -265,7 +263,7 @@ mod core_tests {
 
     #[test]
     fn compute_with_string_ids() {
-        let mut g = Schema::<Attributes, Attributes, String>::new();
+        let mut g = Schema::<Attributes, Attributes, Attributes, String>::new(Attributes::new());
         let _ = g.insert_node(NodeId("root".to_string()), Attributes::new());
         let _ = g.insert_node(NodeId("mid".to_string()), Attributes::new());
         let _ = g.insert_node(NodeId("l1".to_string()), Attributes::new());
@@ -299,9 +297,9 @@ mod core_tests {
 
         let mut known: HashMap<NodeId<String>, f64> = HashMap::new();
 
-        g.compute_with_root(NodeId("root".to_string()), |node_id, children| {
+        g.compute_with_root(NodeId("root".to_string()), |node, children| {
             let state = if children.is_empty() {
-                *known.get(node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -310,7 +308,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(node_id.clone(), state);
+            known.insert(node.id.clone(), state);
         });
 
         assert_eq!(known[&NodeId("l1".to_string())], 0.0);
@@ -321,9 +319,9 @@ mod core_tests {
         known.insert(NodeId("l1".to_string()), 1.0);
         known.insert(NodeId("l2".to_string()), 0.5);
 
-        g.compute_with_root(NodeId("root".to_string()), |node_id, children| {
+        g.compute_with_root(NodeId("root".to_string()), |node, children| {
             let state = if children.is_empty() {
-                *known.get(node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -332,7 +330,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(node_id.clone(), state);
+            known.insert(node.id.clone(), state);
         });
 
         assert_eq!(known[&NodeId("l1".to_string())], 1.0);
@@ -362,7 +360,18 @@ mod core_tests {
             weight: f64,
         }
 
-        let mut g = Schema::<NodeAttributes, EdgeAttributes, u64>::new();
+        #[derive(Debug, Clone, Default)]
+        struct SchemaAttributes {
+            name: String,
+            description: String,
+        }
+
+        let mut g = Schema::<SchemaAttributes, NodeAttributes, EdgeAttributes, u64>::new(
+            SchemaAttributes {
+                name: "test_schema".to_string(),
+                description: "test_schema description".to_string(),
+            },
+        );
 
         let _ = g.insert_node(
             NodeId(1),
@@ -426,6 +435,8 @@ mod core_tests {
             },
         );
 
+        assert_eq!(g.attrs.name, "test_schema");
+        assert_eq!(g.attrs.description, "test_schema description");
         assert_eq!(g.node(&NodeId(4)).unwrap().attrs.external_id, "l2");
         assert_eq!(
             g.node(&NodeId(4)).unwrap().attrs.node_type,
@@ -435,9 +446,9 @@ mod core_tests {
 
         let mut known: HashMap<NodeId<u64>, f64> = HashMap::new();
 
-        g.compute_with_root(NodeId(1), |node_id, children| {
+        g.compute_with_root(NodeId(1), |node, children| {
             let state = if children.is_empty() {
-                *known.get(node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -446,7 +457,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(*node_id, state);
+            known.insert(node.id, state);
         });
 
         assert_eq!(known[&NodeId(4)], 0.0);
@@ -457,9 +468,9 @@ mod core_tests {
         known.insert(NodeId(3), 1.0);
         known.insert(NodeId(4), 0.5);
 
-        g.compute_with_root(NodeId(1), |node_id, children| {
+        g.compute_with_root(NodeId(1), |node, children| {
             let state = if children.is_empty() {
-                *known.get(node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -468,7 +479,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(*node_id, state);
+            known.insert(node.id, state);
         });
 
         assert_eq!(known[&NodeId(4)], 0.5);
@@ -484,7 +495,7 @@ mod core_tests {
             weight: f64,
         }
 
-        let mut g = Schema::<Attributes, EdgeAttributes, &str>::new();
+        let mut g = Schema::<Attributes, Attributes, EdgeAttributes, &str>::new(Attributes::new());
 
         let _ = g.insert_node(NodeId("root"), Attributes::new());
         let _ = g.insert_node(NodeId("mid1"), Attributes::new());
@@ -521,9 +532,9 @@ mod core_tests {
 
         let mut known: HashMap<NodeId<&str>, f64> = HashMap::new();
 
-        g.compute_with_root(NodeId("root"), |node_id, children| {
+        g.compute_with_root(NodeId("root"), |node, children| {
             let state = if children.is_empty() {
-                *known.get(node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -532,7 +543,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(*node_id, state);
+            known.insert(node.id, state);
         });
 
         assert_eq!(known[&NodeId("l1")], 0.0);
@@ -542,9 +553,9 @@ mod core_tests {
 
         known.insert(NodeId("l1"), 1.0);
 
-        g.compute_with_root(NodeId("root"), |node_id, children| {
+        g.compute_with_root(NodeId("root"), |node, children| {
             let state = if children.is_empty() {
-                *known.get(node_id).unwrap_or(&0.0)
+                *known.get(&node.id).unwrap_or(&0.0)
             } else {
                 let sum: f64 = children
                     .iter()
@@ -553,7 +564,7 @@ mod core_tests {
                 sum / (children.len() as f64)
             };
 
-            known.insert(*node_id, state);
+            known.insert(node.id, state);
         });
 
         assert_eq!(known[&NodeId("l1")], 1.0);
