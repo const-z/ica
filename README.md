@@ -65,7 +65,7 @@ config:
 C4Context
     title [Context] Impact Cascade Assessment
 
-    System_Ext(incident_source, "Внешняя система мониторинга", "Источник инцидентов")
+    System_Ext(incident_source, "Источник инцидентов", "Поставляет инциденты в систему")
 
     Person(user, "Оператор", "Следит за состоянием систем в реальном времени")
 
@@ -92,7 +92,7 @@ C4Container
 
     Person(user, "Оператор", "Наблюдает за схемами")
     Person(expert, "Эксперт", "Загружает JSON схемы")
-    System_Ext(monitoring, "Внешний мониторинг", "Отправляет инциденты")
+    System_Ext(monitoring, "Источник инцидентов", "Поставляет инциденты в систему")
 
     Boundary(client, "ica-view (WebAssembly)") {
         Container(web_app, "SPA", "WebAssembly + WebGL", "Отрисовка графов, подписка на события")
@@ -123,6 +123,7 @@ C4Container
     Rel(calculator, ica_layout, "Использует для компоновки (опционально)")
 
     Rel(ws_broadcaster, web_app, "Стриминг событий (WebSocket)")
+    Rel(calculator, ws_broadcaster, "Изменения состояния на схеме")
     Rel(grpc_api, web_app, "Метаданные схем (gRPC-Web)")
 
     Rel(web_app, user, "Визуализация")

@@ -207,20 +207,22 @@ impl eframe::App for TemplateApp {
                                             egui::StrokeKind::Outside,
                                         );
 
-                                        ui.painter().rect_filled(
-                                            rect,
-                                            5.0,
-                                            *node_state
-                                                .get(node.0)
-                                                .unwrap_or(&Color32::TRANSPARENT),
-                                        );
+                                        let node_state = *node_state
+                                            .get(node.0)
+                                            .unwrap_or(&Color32::TRANSPARENT);
+
+                                        ui.painter().rect_filled(rect, 5.0, node_state);
 
                                         ui.painter().text(
                                             rect.center(),
                                             Align2::CENTER_CENTER,
                                             node.0.clone(),
                                             egui::FontId::proportional(10.0),
-                                            Color32::WHITE,
+                                            if node_state == Color32::TRANSPARENT {
+                                                Color32::WHITE
+                                            } else {
+                                                Color32::BLACK
+                                            },
                                         );
                                     }
                                 }

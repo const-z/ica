@@ -194,10 +194,10 @@ service SchemaService {
   // Расчитать состояние системы
   rpc ComputeState(ComputeStateRequest) returns (stream ComputeStateResponse);
 
-  // Экспортировать схему в yaml
+  // Экспортировать схему в jsonl
   rpc ExportSchema(ExportSchemaRequest) returns (stream ExportSchemaResponse);
 
-  // Импортировать схему из yaml
+  // Импортировать схему из jsonl
   rpc ImportSchema(stream ImportSchemaRequest) returns (ImportSchemaResponse);
 
   // Расчитать положение узлов
