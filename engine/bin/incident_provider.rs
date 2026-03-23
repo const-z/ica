@@ -67,7 +67,6 @@ async fn main() {
                                 None => false,
                             }
                     }) {
-                        println!("Incident: {:#?}", node);
                         incidents.lock().await.push(node.node_id.clone());
                     };
                     nodes.lock().await.push(node);
@@ -80,7 +79,14 @@ async fn main() {
         }
     }
 
-    println!("Incidents: {:#?}", incidents.lock().await);
+    {
+        let incidents = incidents.lock().await;
+        if incidents.len() > 0 {
+            println!("Detected incidents: {:#?}", incidents);
+        }
+    }
+
+    println!("Starting generate incidents");
 
     let nodes_ref = nodes.clone();
     let _ = tokio::spawn(async move {
@@ -94,18 +100,19 @@ async fn main() {
                 };
 
                 let incident_id: NodeId<String> = next_node_id();
+                let severity = ((random_range(0.0..50.0)) as f64).trunc() / 100.0;
 
                 let request = AddIncidentRequest {
                     edge: Some(IncidentEdge {
                         edge_id: next_node_id().0,
-                        to_id: node.node_id,
+                        to_id: node.node_id.clone(),
                         attributes: vec![],
                     }),
                     schema_id: schema_id.clone(),
                     incident: Some(Incident {
                         attributes: vec![],
                         node_id: incident_id.0.clone(),
-                        severity: random_range(0.0..50.0) / 100.0,
+                        severity,
                     }),
                 };
 
@@ -113,6 +120,11 @@ async fn main() {
                     eprintln!("Error: {:?}", err);
                     continue;
                 }
+
+                println!(
+                    "Added incident id={:#?} [{:?}] for node id={:#?}",
+                    incident_id.0, severity, node.node_id
+                );
 
                 incidents.lock().await.push(incident_id.0);
             } else {
@@ -131,7 +143,9 @@ async fn main() {
                     continue;
                 }
 
-                incidents.remove(inc_idx);
+                let removed_incident = incidents.remove(inc_idx);
+
+                println!("Removed incident id={:#?}", removed_incident);
             }
 
             tokio::time::sleep(Duration::from_secs(interval)).await;
