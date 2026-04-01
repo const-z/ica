@@ -218,81 +218,77 @@ where
             .flatten()
             .map(|edge_id| self.edges.get(edge_id).unwrap())
     }
-
+    
     pub fn get_path_to_root(&self, root_id: NodeId<T>) -> Result<Vec<NodeId<T>>, SchemaError> {
-        let mut result = Vec::new();
-        let mut stack = Vec::new();
-        let mut visited = HashSet::new();
+        if !self.nodes.contains_key(&root_id) {
+            return Err(SchemaError::NodeNotFound(format!(
+                "Node id {:?} not found",
+                root_id.0
+            )));
+        }
 
-        // Начинаем с корня
-        stack.push(root_id.clone());
+        // 1) Collect the subgraph of all nodes that can reach root_id
+        // by traversing incoming edges in reverse (to -> from).
+        let mut reachable_to_root: HashSet<NodeId<T>> = HashSet::new();
+        let mut stack = vec![root_id.clone()];
 
         while let Some(node_id) = stack.pop() {
-            if visited.contains(&node_id) {
+            if !reachable_to_root.insert(node_id.clone()) {
                 continue;
             }
 
-            // Проверяем, все ли входящие ребра (родители) обработаны
-            let incoming_edges: Vec<_> = self.incoming_edges(&node_id).collect();
-            let mut all_parents_processed = true;
-
-            for edge in &incoming_edges {
-                let parent_id = &edge.from;
-                if !visited.contains(parent_id) {
-                    all_parents_processed = false;
-                    // Добавляем необработанного родителя в стек
-                    if !stack.contains(parent_id) {
-                        stack.push(parent_id.clone());
-                    }
-                }
-            }
-
-            if all_parents_processed {
-                // Все родители обработаны, можно добавить текущий узел
-                visited.insert(node_id.clone());
-                result.push(node_id.clone());
-
-                // После добавления узла, проверяем его детей
-                for edge in self.outgoing_edges(&node_id) {
-                    let child_id = &edge.to;
-                    if !visited.contains(child_id) && !stack.contains(child_id) {
-                        stack.push(child_id.clone());
-                    }
-                }
-            } else {
-                // Возвращаем узел в стек для повторной проверки позже
-                // Но чтобы избежать бесконечного цикла, добавляем его в конец
-                if !stack.contains(&node_id) {
-                    stack.insert(0, node_id);
+            for edge in self.incoming_edges(&node_id) {
+                if !reachable_to_root.contains(&edge.from) {
+                    stack.push(edge.from.clone());
                 }
             }
         }
 
-        // Проверяем, что все узлы были посещены
-        if visited.len() != self.node_count() {
-            // Некоторые узлы не достижимы от корня или есть цикл
-            // Добавляем оставшиеся узлы в порядке, который сохраняет зависимости
-            let mut remaining_nodes: Vec<_> = self
-                .nodes()
-                .map(|n| n.id.clone())
-                .filter(|id| !visited.contains(id))
-                .collect();
+        // 2) Kahn topological sort on the collected subgraph.
+        let mut in_degree: HashMap<NodeId<T>, usize> = HashMap::new();
+        for node_id in &reachable_to_root {
+            in_degree.insert(node_id.clone(), 0);
+        }
 
-            // Сортируем оставшиеся узлы так, чтобы родители были перед детьми
-            remaining_nodes.sort_by(|a, b| {
-                let a_has_edge_to_b = self.outgoing_edges(a).any(|e| e.to == *b);
-                let b_has_edge_to_a = self.outgoing_edges(b).any(|e| e.to == *a);
+        for edge in self.edges() {
+            if reachable_to_root.contains(&edge.from) && reachable_to_root.contains(&edge.to) {
+                *in_degree.entry(edge.to.clone()).or_insert(0) += 1;
+            }
+        }
 
-                if a_has_edge_to_b {
-                    std::cmp::Ordering::Less
-                } else if b_has_edge_to_a {
-                    std::cmp::Ordering::Greater
+        let mut queue: Vec<NodeId<T>> = in_degree
+            .iter()
+            .filter_map(|(node_id, degree)| {
+                if *degree == 0 {
+                    Some(node_id.clone())
                 } else {
-                    std::cmp::Ordering::Equal
+                    None
                 }
-            });
+            })
+            .collect();
 
-            result.extend(remaining_nodes);
+        let mut result = Vec::with_capacity(reachable_to_root.len());
+        while let Some(node_id) = queue.pop() {
+            result.push(node_id.clone());
+
+            for edge in self.outgoing_edges(&node_id) {
+                if !reachable_to_root.contains(&edge.to) {
+                    continue;
+                }
+
+                if let Some(degree) = in_degree.get_mut(&edge.to) {
+                    *degree -= 1;
+                    if *degree == 0 {
+                        queue.push(edge.to.clone());
+                    }
+                }
+            }
+        }
+
+        if result.len() != reachable_to_root.len() {
+            return Err(SchemaError::CycleDetected(
+                "Graph contains a cycle in root-reachable subgraph".to_string(),
+            ));
         }
 
         Ok(result)
@@ -774,5 +770,84 @@ mod tests_schema {
                 "All nodes must be in the path"
             );
         }
+    }
+
+    #[test]
+    fn test_get_path_to_root_2_excludes_nodes_outside_root_component() {
+        let mut schema = Schema::<Attributes, Attributes, Attributes, u64>::new(Attributes::new());
+
+        let root = NodeId(1u64);
+        let toward_root = NodeId(2u64);
+        let orphan_a = NodeId(10u64);
+        let orphan_b = NodeId(11u64);
+
+        let _ = schema.insert_node(root, Attributes::new());
+        let _ = schema.insert_node(toward_root, Attributes::new());
+        let _ = schema.insert_node(orphan_a, Attributes::new());
+        let _ = schema.insert_node(orphan_b, Attributes::new());
+
+        let _ = schema.insert_edge(EdgeId(1), toward_root, root, Attributes::new());
+        let _ = schema.insert_edge(EdgeId(2), orphan_a, orphan_b, Attributes::new());
+
+        let path = schema.get_path_to_root(root).unwrap();
+
+        assert_eq!(path.len(), 2);
+        assert_eq!(path, vec![toward_root, root]);
+        assert!(!path.contains(&orphan_a));
+        assert!(!path.contains(&orphan_b));
+
+        for edge in schema.edges() {
+            let from = edge.from.clone();
+            let to = edge.to.clone();
+            if path.contains(&from) && path.contains(&to) {
+                let pi = path.iter().position(|id| *id == from).unwrap();
+                let pj = path.iter().position(|id| *id == to).unwrap();
+                assert!(
+                    pi < pj,
+                    "topological order: {:?} must precede {:?}",
+                    from.0,
+                    to.0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_path_to_root_2_cycle_in_reachable_subgraph() {
+        let mut schema = Schema::<Attributes, Attributes, Attributes, u64>::new(Attributes::new());
+
+        let root = NodeId(1u64);
+        let a = NodeId(2u64);
+        let b = NodeId(3u64);
+
+        let _ = schema.insert_node(root, Attributes::new());
+        let _ = schema.insert_node(a, Attributes::new());
+        let _ = schema.insert_node(b, Attributes::new());
+
+        let _ = schema.insert_edge(EdgeId(1), a, root, Attributes::new());
+        let _ = schema.insert_edge(EdgeId(2), a, b, Attributes::new());
+        let _ = schema.insert_edge(EdgeId(3), b, a, Attributes::new());
+
+        let err = schema
+            .get_path_to_root(root)
+            .expect_err("cycle in root-reachable subgraph must be reported");
+
+        assert!(matches!(err, SchemaError::CycleDetected(_)));
+    }
+
+    #[test]
+    fn test_get_path_to_root_2_root_not_found() {
+        let mut schema = Schema::<Attributes, Attributes, Attributes, u64>::new(Attributes::new());
+
+        let _ = schema.insert_node(NodeId(1u64), Attributes::new());
+        let _ = schema.insert_node(NodeId(2u64), Attributes::new());
+        let _ = schema.insert_edge(EdgeId(1), NodeId(2u64), NodeId(1u64), Attributes::new());
+
+        let missing_root = NodeId(99u64);
+        let err = schema
+            .get_path_to_root(missing_root)
+            .expect_err("missing root id must return NodeNotFound");
+
+        assert!(matches!(err, SchemaError::NodeNotFound(_)));
     }
 }
