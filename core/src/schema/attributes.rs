@@ -47,30 +47,30 @@ impl Attributes {
         self.inner.iter()
     }
 
-    pub fn get_text<K: AsRef<str>>(&self, key: K) -> Option<String> {
+    pub fn get_text<K: AsRef<str>>(&self, key: K) -> Option<&String> {
         match self.inner.get(key.as_ref()) {
-            Some(AttributeValue::Text(value)) => Some(value.clone()),
+            Some(AttributeValue::Text(value)) => Some(value),
             _ => None,
         }
     }
 
-    pub fn get_float<K: AsRef<str>>(&self, key: K) -> Option<f64> {
+    pub fn get_float<K: AsRef<str>>(&self, key: K) -> Option<&f64> {
         match self.inner.get(key.as_ref()) {
-            Some(AttributeValue::Float(value)) => Some(*value),
+            Some(AttributeValue::Float(value)) => Some(value),
             _ => None,
         }
     }
 
-    pub fn get_int<K: AsRef<str>>(&self, key: K) -> Option<i64> {
+    pub fn get_int<K: AsRef<str>>(&self, key: K) -> Option<&i64> {
         match self.inner.get(key.as_ref()) {
-            Some(AttributeValue::Integer(value)) => Some(*value),
+            Some(AttributeValue::Integer(value)) => Some(value),
             _ => None,
         }
     }
 
-    pub fn get_bool<K: AsRef<str>>(&self, key: K) -> Option<bool> {
+    pub fn get_bool<K: AsRef<str>>(&self, key: K) -> Option<&bool> {
         match self.inner.get(key.as_ref()) {
-            Some(AttributeValue::Boolean(value)) => Some(*value),
+            Some(AttributeValue::Boolean(value)) => Some(value),
             _ => None,
         }
     }

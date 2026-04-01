@@ -15,14 +15,14 @@ pub async fn compute<C>(
         let state = if let Some(node_type) = node.attrs.get_text("type")
             && node_type == "INCIDENT"
         {
-            node.attrs.get_float("severity").unwrap_or(0.0)
+            *node.attrs.get_float("severity").unwrap_or(&0.0)
         } else if children.is_empty() {
             *seeds.get(&node.id).unwrap_or(&0.0)
         } else {
             let state: f64 = children
                 .iter()
                 .map(|c| {
-                    let weight = c.attrs.get_float("weight").unwrap_or(1.0);
+                    let weight = c.attrs.get_float("weight").unwrap_or(&1.0);
 
                     1.0 - seeds.get(&c.from).unwrap_or(&0.0) * weight
                 })
