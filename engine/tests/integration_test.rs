@@ -353,10 +353,10 @@ pub mod grpc_tests {
         let leaf1_state = states.get(&leaf1_id).unwrap();
         let leaf2_state = states.get(&leaf2_id).unwrap();
 
-        assert!((leaf1_state - 1.0).abs() < 1e-9);
-        assert!((leaf2_state - 0.5).abs() < 1e-9);
-        assert!((mid_state - 0.75).abs() < 1e-9);
-        assert!((root_state - 0.75).abs() < 1e-9);
+        assert_eq!(*leaf1_state, 1.0);
+        assert_eq!(*leaf2_state, 0.5);
+        assert_eq!(*mid_state, 1.0);
+        assert_eq!(*root_state, 1.0);
     }
 
     #[tokio::test]

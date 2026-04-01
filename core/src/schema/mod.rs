@@ -18,10 +18,10 @@ pub struct NodeId<T: Debug + Hash + Eq>(pub T);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct EdgeId<T: Debug + Hash>(pub T);
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Schema<SA, NA, EA, T>
 where
-    T: Clone + Default + Debug + Hash + Eq,
+    T: Clone + Debug + Hash + Eq,
 {
     pub attrs: SA,
     nodes: HashMap<NodeId<T>, Node<NA, T>>,
@@ -68,7 +68,10 @@ where
     pub fn new(attrs: SA) -> Self {
         Self {
             attrs,
-            ..Self::default()
+            edges: HashMap::new(),
+            edges_from: HashMap::new(),
+            edges_to: HashMap::new(),
+            nodes: HashMap::new(),
         }
     }
 
@@ -271,15 +274,6 @@ where
         let mut stack = Vec::new();
         let mut visited = HashSet::new();
 
-        // Словарь для отслеживания количества необработанных входящих ребер для каждого узла
-        let mut remaining_incoming = HashMap::new();
-
-        // Инициализируем remaining_incoming для всех узлов
-        for node in self.nodes() {
-            let incoming_count = self.incoming_edges(&node.id).count();
-            remaining_incoming.insert(node.id.clone(), incoming_count);
-        }
-
         // Начинаем с корня
         stack.push(root_id.clone());
 
@@ -421,10 +415,10 @@ where
 
         for node_id in path.iter() {
             // у каждой ноды получить список нод влияющих на эту ноду
-            let eges: Vec<&Edge<EA, T>> = self.incoming_edges(node_id).collect();
+            let edges: Vec<&Edge<EA, T>> = self.incoming_edges(node_id).collect();
             let node = self.node(node_id).unwrap();
             // выполнить combine с этими данными
-            combine(node, eges);
+            combine(node, edges);
         }
     }
 
@@ -436,10 +430,10 @@ where
 
         for node_id in path.iter() {
             // у каждой ноды получить список нод влияющих на эту ноду
-            let eges: Vec<&Edge<EA, T>> = self.incoming_edges(node_id).collect();
+            let edges: Vec<&Edge<EA, T>> = self.incoming_edges(node_id).collect();
             let node = self.node(node_id).unwrap();
             // выполнить combine с этими данными
-            combine(node, eges);
+            combine(node, edges);
         }
     }
 }
@@ -616,6 +610,174 @@ mod tests_schema {
 
     #[test]
     fn test_get_full_path() {
+        let nodes = vec![
+            "bea057ed-9517-4737-a61b-f0d22879273e",
+            "ced3de21-afed-4375-8942-794033f10576",
+            "cff6685b-8983-445b-abdf-0b31fb42437a",
+            "b2216bd4-f863-46b6-92b9-5c220b342ab2",
+            "aad80c80-1169-11f1-b4ac-0800200c9a66",
+            "b118642c-b368-4e9f-bdc3-64e7c82ee684",
+            "6a49d90b-aa88-410d-8a19-1b5a96903d92",
+            "6a49d90b-aa88-410d-8a19-1b5a96903d93",
+            "6a49d90b-aa88-410d-8a19-1b5a96903d94",
+        ];
+
+        let edges = vec![
+            (
+                NodeId("bea057ed-9517-4737-a61b-f0d22879273e".to_string()),
+                NodeId("cff6685b-8983-445b-abdf-0b31fb42437a".to_string()),
+            ),
+            (
+                NodeId("b2216bd4-f863-46b6-92b9-5c220b342ab2".to_string()),
+                NodeId("cff6685b-8983-445b-abdf-0b31fb42437a".to_string()),
+            ),
+            (
+                NodeId("ced3de21-afed-4375-8942-794033f10576".to_string()),
+                NodeId("bea057ed-9517-4737-a61b-f0d22879273e".to_string()),
+            ),
+            (
+                NodeId("ced3de21-afed-4375-8942-794033f10576".to_string()),
+                NodeId("b2216bd4-f863-46b6-92b9-5c220b342ab2".to_string()),
+            ),
+            (
+                NodeId("aad80c80-1169-11f1-b4ac-0800200c9a66".to_string()),
+                NodeId("ced3de21-afed-4375-8942-794033f10576".to_string()),
+            ),
+            (
+                NodeId("b118642c-b368-4e9f-bdc3-64e7c82ee684".to_string()),
+                NodeId("ced3de21-afed-4375-8942-794033f10576".to_string()),
+            ),
+            (
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d92".to_string()),
+                NodeId("aad80c80-1169-11f1-b4ac-0800200c9a66".to_string()),
+            ),
+            (
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d92".to_string()),
+                NodeId("cff6685b-8983-445b-abdf-0b31fb42437a".to_string()),
+            ),
+            (
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d93".to_string()),
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d92".to_string()),
+            ),
+            (
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d94".to_string()),
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d92".to_string()),
+            ),
+            (
+                NodeId("6a49d90b-aa88-410d-8a19-1b5a96903d94".to_string()),
+                NodeId("aad80c80-1169-11f1-b4ac-0800200c9a66".to_string()),
+            ),
+        ];
+
+        let mut schema =
+            Schema::<Attributes, Attributes, Attributes, String>::new(Attributes::new());
+
+        for node_id in nodes {
+            let _ = schema.insert_node(NodeId(node_id.to_string()), Attributes::new());
+        }
+
+        for (idx, edge) in edges.into_iter().enumerate() {
+            let _ = schema.insert_edge(
+                EdgeId::<String>(idx.to_string()),
+                edge.0,
+                edge.1,
+                Attributes::new(),
+            );
+        }
+
+        let root = NodeId("cff6685b-8983-445b-abdf-0b31fb42437a".to_string());
+
+        let path = schema.get_full_path().unwrap();
+
+        assert_eq!(path.len(), 9);
+        assert_eq!(path.last().unwrap(), &root, "Root node must be first");
+
+        assert_eq!(
+            path.last().unwrap().0,
+            "cff6685b-8983-445b-abdf-0b31fb42437a".to_string(),
+            "Root node must be first"
+        );
+
+        assert!(
+            path.iter()
+                .position(|i| "bea057ed-9517-4737-a61b-f0d22879273e" == i.0)
+                .unwrap()
+                < 8
+        );
+        assert!(
+            path.iter()
+                .position(|i| "b2216bd4-f863-46b6-92b9-5c220b342ab2" == i.0)
+                .unwrap()
+                < 8
+        );
+        assert!(
+            path.iter()
+                .position(|i| "ced3de21-afed-4375-8942-794033f10576" == i.0)
+                .unwrap()
+                < path
+                    .iter()
+                    .position(|i| "b2216bd4-f863-46b6-92b9-5c220b342ab2" == i.0)
+                    .unwrap()
+                && path
+                    .iter()
+                    .position(|i| "ced3de21-afed-4375-8942-794033f10576" == i.0)
+                    .unwrap()
+                    < path
+                        .iter()
+                        .position(|i| "bea057ed-9517-4737-a61b-f0d22879273e" == i.0)
+                        .unwrap()
+        );
+
+        assert!(
+            path.iter()
+                .position(|i| "aad80c80-1169-11f1-b4ac-0800200c9a66" == i.0)
+                .unwrap()
+                < path
+                    .iter()
+                    .position(|i| "ced3de21-afed-4375-8942-794033f10576" == i.0)
+                    .unwrap()
+        );
+        assert!(
+            path.iter()
+                .position(|i| "b118642c-b368-4e9f-bdc3-64e7c82ee684" == i.0)
+                .unwrap()
+                < path
+                    .iter()
+                    .position(|i| "ced3de21-afed-4375-8942-794033f10576" == i.0)
+                    .unwrap()
+        );
+
+        assert!(
+            path.iter()
+                .position(|i| "6a49d90b-aa88-410d-8a19-1b5a96903d92" == i.0)
+                .unwrap()
+                < path
+                    .iter()
+                    .position(|i| "aad80c80-1169-11f1-b4ac-0800200c9a66" == i.0)
+                    .unwrap()
+        );
+        assert!(
+            path.iter()
+                .position(|i| "6a49d90b-aa88-410d-8a19-1b5a96903d93" == i.0)
+                .unwrap()
+                < path
+                    .iter()
+                    .position(|i| "6a49d90b-aa88-410d-8a19-1b5a96903d92" == i.0)
+                    .unwrap()
+        );
+        assert!(
+            path.iter()
+                .position(|i| "6a49d90b-aa88-410d-8a19-1b5a96903d94" == i.0)
+                .unwrap()
+                < path
+                    .iter()
+                    .position(|i| "6a49d90b-aa88-410d-8a19-1b5a96903d92" == i.0)
+                    .unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_full_path_2() {
         let nodes = vec![
             "bea057ed-9517-4737-a61b-f0d22879273e",
             "ced3de21-afed-4375-8942-794033f10576",
