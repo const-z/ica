@@ -74,7 +74,6 @@ impl From<RepositoryError> for Status {
     }
 }
 
-#[derive(Default)]
 pub struct SchemaServiceImpl {
     store: MemorySchemaStore,
     durty_schemas: Arc<RwLock<HashSet<String>>>,
@@ -83,7 +82,7 @@ pub struct SchemaServiceImpl {
 impl SchemaServiceImpl {
     pub fn new() -> Self {
         let result = Self {
-            store: MemorySchemaStore::default(),
+            store: MemorySchemaStore::new(),
             durty_schemas: Arc::new(RwLock::new(HashSet::new())),
         };
 

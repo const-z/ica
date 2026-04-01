@@ -22,7 +22,7 @@ pub struct MemorySchemaStore {
 }
 
 impl MemorySchemaStore {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             schemas: Arc::new(RwLock::new(HashMap::new())),
             seeds: Arc::new(RwLock::new(HashMap::new())),
@@ -31,12 +31,6 @@ impl MemorySchemaStore {
 
     pub fn get_schemas_store(&self) -> (StoreSchemas, StoreSeeds) {
         (self.schemas.clone(), self.seeds.clone())
-    }
-}
-
-impl Default for MemorySchemaStore {
-    fn default() -> Self {
-        MemorySchemaStore::new()
     }
 }
 
