@@ -60,10 +60,7 @@ impl std::fmt::Display for SchemaError {
 
 impl<SA, NA, EA, T> Schema<SA, NA, EA, T>
 where
-    SA: Default,
-    NA: Default,
-    EA: Default,
-    T: Clone + Default + Debug + Hash + Eq,
+    T: Clone + Debug + Hash + Eq,
 {
     pub fn new(attrs: SA) -> Self {
         Self {

@@ -81,7 +81,7 @@ async fn main() {
 
     {
         let incidents = incidents.lock().await;
-        if incidents.len() > 0 {
+        if !incidents.is_empty() {
             println!("Detected incidents: {:#?}", incidents);
         }
     }
