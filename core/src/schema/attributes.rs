@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct AttributeKey(pub String);
+pub type AttributeKey = String;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum AttributeValue {
@@ -28,13 +27,12 @@ impl Attributes {
         key: K,
         value: AttributeValue,
     ) -> Option<AttributeValue> {
-        let key = AttributeKey(key.into());
-        self.inner.insert(key, value)
+        self.inner.insert(key.into(), value)
     }
 
     pub fn get<K: AsRef<str>>(&self, key: K) -> Option<&AttributeValue> {
-        let key = AttributeKey(key.as_ref().to_owned());
-        self.inner.get(&key)
+        let key = key.as_ref();
+        self.inner.get(key)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -50,28 +48,28 @@ impl Attributes {
     }
 
     pub fn get_text<K: AsRef<str>>(&self, key: K) -> Option<String> {
-        match self.inner.get(&AttributeKey(key.as_ref().to_owned())) {
+        match self.inner.get(key.as_ref()) {
             Some(AttributeValue::Text(value)) => Some(value.clone()),
             _ => None,
         }
     }
 
     pub fn get_float<K: AsRef<str>>(&self, key: K) -> Option<f64> {
-        match self.inner.get(&AttributeKey(key.as_ref().to_owned())) {
+        match self.inner.get(key.as_ref()) {
             Some(AttributeValue::Float(value)) => Some(*value),
             _ => None,
         }
     }
 
     pub fn get_int<K: AsRef<str>>(&self, key: K) -> Option<i64> {
-        match self.inner.get(&AttributeKey(key.as_ref().to_owned())) {
+        match self.inner.get(key.as_ref()) {
             Some(AttributeValue::Integer(value)) => Some(*value),
             _ => None,
         }
     }
 
     pub fn get_bool<K: AsRef<str>>(&self, key: K) -> Option<bool> {
-        match self.inner.get(&AttributeKey(key.as_ref().to_owned())) {
+        match self.inner.get(key.as_ref()) {
             Some(AttributeValue::Boolean(value)) => Some(*value),
             _ => None,
         }

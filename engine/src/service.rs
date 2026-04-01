@@ -57,7 +57,7 @@ fn to_vec_attributes(attrs: Attributes) -> Vec<Attribute> {
                 AttributeValue::Boolean(v) => attribute::Value::Boolean(*v),
             };
             Attribute {
-                key: key.0.clone(),
+                key: key.clone(),
                 value: Some(value),
             }
         })
