@@ -126,6 +126,12 @@ impl SchemaServiceImpl {
     }
 }
 
+impl Default for SchemaServiceImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaHeader {
     pub schema_id: String,
@@ -135,8 +141,8 @@ pub struct SchemaHeader {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SchemaElement {
     Header(SchemaHeader),
-    Node(ica_core::schema::Node<Attributes, String>),
-    Edge(ica_core::schema::Edge<Attributes, String>),
+    Node(ica_core::Node<Attributes, String>),
+    Edge(ica_core::Edge<Attributes, String>),
 }
 
 #[tonic::async_trait]

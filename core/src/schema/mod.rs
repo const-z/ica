@@ -1,6 +1,7 @@
-pub mod attributes;
-pub mod edge;
-pub mod node;
+mod attributes;
+mod edge;
+mod errors;
+mod node;
 
 use std::{
     collections::{HashMap, HashSet},
@@ -10,6 +11,7 @@ use std::{
 
 pub use attributes::{AttributeKey, AttributeValue, Attributes};
 pub use edge::Edge;
+pub use errors::SchemaError;
 pub use node::Node;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -28,34 +30,6 @@ where
     edges: HashMap<EdgeId<T>, Edge<EA, T>>,
     edges_from: HashMap<NodeId<T>, Vec<EdgeId<T>>>,
     edges_to: HashMap<NodeId<T>, Vec<EdgeId<T>>>,
-}
-
-#[derive(Debug)]
-pub struct ChildImpact<'a, NA, EA, T: Debug + Hash + Eq> {
-    pub child: &'a Node<NA, T>,
-    pub edge: &'a Edge<EA, T>,
-    pub impact: f64,
-}
-
-#[derive(Debug)]
-pub enum SchemaError {
-    NodeExists(String),
-    NodeNotFound(String),
-    EdgeExists(String),
-    EdgeNotFound(String),
-    CycleDetected(String),
-}
-
-impl std::fmt::Display for SchemaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SchemaError::NodeExists(msg) => write!(f, "SchemaError: NodeExists: {}", msg),
-            SchemaError::NodeNotFound(msg) => write!(f, "SchemaError: NodeNotFound: {}", msg),
-            SchemaError::EdgeExists(msg) => write!(f, "SchemaError: EdgeExists: {}", msg),
-            SchemaError::EdgeNotFound(msg) => write!(f, "SchemaError: EdgeNotFound: {}", msg),
-            SchemaError::CycleDetected(msg) => write!(f, "SchemaError: CycleDetected: {}", msg),
-        }
-    }
 }
 
 impl<SA, NA, EA, T> Schema<SA, NA, EA, T>
@@ -86,10 +60,7 @@ where
 
     pub fn insert_node(&mut self, id: NodeId<T>, attrs: NA) -> Result<(), SchemaError> {
         if self.nodes.contains_key(&id) {
-            return Err(SchemaError::NodeExists(format!(
-                "node with id {:?} already exists",
-                id
-            )));
+            return Err(SchemaError::NodeExists(format!("{:?}", id)));
         }
 
         self.nodes.insert(
@@ -108,10 +79,7 @@ where
 
     pub fn remove_node(&mut self, id: &NodeId<T>) -> Result<(), SchemaError> {
         if !self.nodes.contains_key(id) {
-            return Err(SchemaError::NodeNotFound(format!(
-                "Node id {:?} not found",
-                &id.0
-            )));
+            return Err(SchemaError::NodeNotFound(format!("{:?}", id)));
         }
 
         self.nodes.remove(id);
@@ -135,20 +103,14 @@ where
     pub fn node(&self, id: &NodeId<T>) -> Result<&Node<NA, T>, SchemaError> {
         match self.nodes.get(id) {
             Some(node) => Ok(node),
-            None => Err(SchemaError::NodeNotFound(format!(
-                "Node id {:?} not found",
-                id
-            ))),
+            None => Err(SchemaError::NodeNotFound(format!("{:?}", id))),
         }
     }
 
     pub fn node_mut(&mut self, id: &NodeId<T>) -> Result<&mut Node<NA, T>, SchemaError> {
         match self.nodes.get_mut(id) {
             Some(node) => Ok(node),
-            None => Err(SchemaError::NodeNotFound(format!(
-                "Node id {:?} not found",
-                id
-            ))),
+            None => Err(SchemaError::NodeNotFound(format!("{:?}", id))),
         }
     }
 
@@ -160,32 +122,23 @@ where
         attrs: EA,
     ) -> Result<(), SchemaError> {
         if !self.nodes.contains_key(&from) {
-            return Err(SchemaError::NodeNotFound(format!(
-                "attempt to add edge from unknown node id {:?}",
-                from.0
-            )));
+            return Err(SchemaError::NodeNotFound(format!("{:?}", from)));
         }
 
         if !self.nodes.contains_key(&to) {
-            return Err(SchemaError::NodeNotFound(format!(
-                "attempt to add edge to unknown node id {:?}",
-                to.0
-            )));
+            return Err(SchemaError::NodeNotFound(format!("{:?}", to)));
         }
 
         if self.edges.contains_key(&id) {
-            return Err(SchemaError::EdgeExists(format!(
-                "edge with id {:?} already exists",
-                id
-            )));
+            return Err(SchemaError::EdgeExists(format!("{:?}", id)));
         }
 
         if let Some(edges_to) = &self.edges_from.get(&from)
-            && edges_to.iter().any(|t| self.edge(t).unwrap().to == to)
+            && edges_to.iter().any(|t| to == self.edge(t).unwrap().to)
         {
             return Err(SchemaError::EdgeExists(format!(
-                "edge {:?} -> {:?} already exists",
-                &from.0, &to.0
+                "{:?} -> {:?}",
+                from.0, to.0
             )));
         }
 

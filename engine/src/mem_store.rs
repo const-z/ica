@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use ica_core::schema::SchemaError;
+use ica_core::SchemaError;
 use ica_core::{AttributeValue, Attributes, EdgeId, NodeId, Schema};
 use tokio::sync::RwLock;
 

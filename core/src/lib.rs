@@ -1,6 +1,8 @@
-pub mod schema;
+mod schema;
 
-pub use schema::{AttributeKey, AttributeValue, Attributes, Edge, EdgeId, Node, NodeId, Schema};
+pub use schema::{
+    AttributeKey, AttributeValue, Attributes, Edge, EdgeId, Node, NodeId, Schema, SchemaError,
+};
 
 #[cfg(test)]
 mod core_tests {
