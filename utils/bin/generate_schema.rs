@@ -2,9 +2,8 @@ use ica_core::{Attributes, EdgeId, NodeId, Schema};
 use rand::distr::Alphanumeric;
 use rand::{RngExt, random_range};
 
-use ica_engine::SchemaElement;
-use ica_engine::schema_contracts::schema_service_client::SchemaServiceClient;
-use ica_engine::{SchemaHeader, schema_contracts::*};
+use ica_engine::{SchemaElement, SchemaHeader};
+use ica_utils::schema_contracts::{schema_service_client::SchemaServiceClient, *};
 
 fn generate_schema_test_data(
     nodes_count: usize,

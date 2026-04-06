@@ -1,7 +1,10 @@
 use std::{sync::Arc, time::Duration};
 
 use ica_core::NodeId;
-use ica_engine::schema_contracts::{schema_service_client::SchemaServiceClient, *};
+use ica_utils::schema_contracts::{
+    AddIncidentRequest, GetSchemaRequest, Incident, IncidentEdge, RemoveNodeRequest, attribute,
+    get_schema_response, schema_service_client::SchemaServiceClient,
+};
 use rand::{RngExt, distr::Alphanumeric, random_range};
 use tokio::sync::Mutex;
 use tokio_stream::StreamExt;
@@ -91,6 +94,8 @@ async fn main() {
     let nodes_ref = nodes.clone();
     let _ = tokio::spawn(async move {
         loop {
+            tokio::time::sleep(Duration::from_secs(interval)).await;
+
             let del_or_ins = random_range(0..=probability);
 
             if del_or_ins == 0 {
@@ -147,8 +152,6 @@ async fn main() {
 
                 println!("Removed incident id={:#?}", removed_incident);
             }
-
-            tokio::time::sleep(Duration::from_secs(interval)).await;
         }
     })
     .await;

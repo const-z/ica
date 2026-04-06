@@ -1,4 +1,6 @@
-use ica_engine::schema_contracts::{schema_service_client::SchemaServiceClient, *};
+use ica_utils::schema_contracts::{
+    ImportSchemaRequest, schema_service_client::SchemaServiceClient,
+};
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},

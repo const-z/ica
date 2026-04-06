@@ -1,5 +1,5 @@
 [workspace]
-members = ["engine", "core", "layout", "view"]
+members = ["engine", "core", "layout", "view", "utils"]
 
 resolver = "3"
 

@@ -1216,7 +1216,6 @@ dependencies = [
  "ica-core",
  "ica-layout",
  "prost",
- "rand",
  "serde",
  "serde_json",
  "tokio",
@@ -1237,6 +1236,24 @@ dependencies = [
  "petgraph",
  "rand",
  "svg",
+]
+
+[[package]]
+name = "ica-utils"
+version = "0.1.0"
+dependencies = [
+ "ica-core",
+ "ica-engine",
+ "prost",
+ "rand",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-prost",
+ "tonic-prost-build",
+ "walkdir",
 ]
 
 [[package]]

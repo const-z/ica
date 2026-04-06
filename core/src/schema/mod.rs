@@ -773,7 +773,7 @@ mod tests_schema {
     }
 
     #[test]
-    fn test_get_path_to_root_2_excludes_nodes_outside_root_component() {
+    fn test_get_path_to_root_excludes_nodes_outside_root_component() {
         let mut schema = Schema::<Attributes, Attributes, Attributes, u64>::new(Attributes::new());
 
         let root = NodeId(1u64);
@@ -813,7 +813,7 @@ mod tests_schema {
     }
 
     #[test]
-    fn test_get_path_to_root_2_cycle_in_reachable_subgraph() {
+    fn test_get_path_to_root_cycle_in_reachable_subgraph() {
         let mut schema = Schema::<Attributes, Attributes, Attributes, u64>::new(Attributes::new());
 
         let root = NodeId(1u64);
